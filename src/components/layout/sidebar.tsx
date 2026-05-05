@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
+import { Button } from '@/components/ui/button'
 import { 
   LayoutDashboard,
   AlertTriangle,
@@ -21,7 +22,8 @@ import {
   Shield,
   Phone,
   Building,
-  GraduationCap
+  GraduationCap,
+  LogOut
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -102,9 +104,18 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
-  const { stakeholder, hasPermission, hasRole } = useAuthStore()
+  const router = useRouter()
+  const { stakeholder, hasPermission, hasRole, logout } = useAuthStore()
+
+  const handleLogout = () => {
+    logout()
+    router.push('/auth/login')
+  }
 
   const filteredItems = sidebarItems.filter(item => {
+    // Show all items if no stakeholder (development mode) or check permissions
+    if (!stakeholder) return true
+    
     if (item.permission && !hasPermission(item.permission)) {
       return false
     }
@@ -142,7 +153,7 @@ export function Sidebar({ className }: SidebarProps) {
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-emergency-100 rounded-full flex items-center justify-center">
               <span className="text-emergency-600 font-semibold">
-                {stakeholder.first_name?.charAt(0)}{stakeholder.last_name?.charAt(0)}
+                {(stakeholder.first_name?.[0] || '') + (stakeholder.last_name?.[0] || '')}
               </span>
             </div>
             <div className="flex-1 min-w-0">
@@ -154,6 +165,15 @@ export function Sidebar({ className }: SidebarProps) {
               </p>
             </div>
           </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleLogout}
+            className="w-full mt-3 text-gray-500 hover:text-red-600 hover:bg-red-50"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
       )}
 

@@ -9,10 +9,20 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
+  register: (userData: RegisterData) => Promise<void>
   logout: () => void
   refreshAccessToken: () => Promise<void>
   hasPermission: (permission: string) => boolean
   hasRole: (role: StakeholderRole | StakeholderRole[]) => boolean
+}
+
+interface RegisterData {
+  email: string
+  password: string
+  full_name: string
+  phone?: string
+  organization?: string
+  role: StakeholderRole
 }
 
 const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
@@ -81,26 +91,91 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
 
+      // Mock users for demo
       login: async (email: string, password: string) => {
         set({ isLoading: true })
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 800))
+        
         try {
-          // API call would go here
-          const response = await fetch('/api/v1/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-          })
-
-          if (!response.ok) {
-            throw new Error('Login failed')
+          // Mock authentication - accept any email with password >= 6 chars
+          if (password.length < 6) {
+            throw new Error('Invalid credentials')
           }
 
-          const data = await response.json()
+          // Determine role from email or use default
+          let role: StakeholderRole = 'help_center'
+          if (email.includes('admin')) role = 'super_admin'
+          else if (email.includes('police')) role = 'police'
+          else if (email.includes('legal')) role = 'legal_officer'
+          else if (email.includes('counselor')) role = 'counselor'
+          else if (email.includes('ngo')) role = 'ngo_manager'
+          else if (email.includes('regional')) role = 'regional_manager'
+
+          const nameParts = email.split('@')[0].replace(/\./g, ' ').replace(/_/g, ' ').split(' ')
+          const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || 'Demo'
+          const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || 'User'
+          
+          const mockStakeholder: Stakeholder = {
+            id: Math.random().toString(36).substring(2, 9),
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            phone_number: '+1 (555) 000-0000',
+            role,
+            department: role === 'police' ? 'Domestic Violence Unit' : role === 'counselor' ? 'Counseling Services' : null,
+            region: null,
+            is_active: true,
+            last_login_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
           
           set({
-            stakeholder: data.stakeholder,
-            token: data.access_token,
-            refreshToken: data.refresh_token,
+            stakeholder: mockStakeholder,
+            token: 'mock_access_token_' + Date.now(),
+            refreshToken: 'mock_refresh_token_' + Date.now(),
+            isAuthenticated: true,
+            isLoading: false
+          })
+        } catch (error) {
+          set({ isLoading: false })
+          throw error
+        }
+      },
+
+      register: async (userData: RegisterData) => {
+        set({ isLoading: true })
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        try {
+          if (userData.password.length < 6) {
+            throw new Error('Password must be at least 6 characters')
+          }
+
+          const nameParts = userData.full_name.split(' ')
+          const newStakeholder: Stakeholder = {
+            id: Math.random().toString(36).substring(2, 9),
+            email: userData.email,
+            first_name: nameParts[0] || 'New',
+            last_name: nameParts.slice(1).join(' ') || 'User',
+            phone_number: userData.phone || null,
+            role: userData.role,
+            department: userData.organization || null,
+            region: null,
+            is_active: true,
+            last_login_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+          
+          set({
+            stakeholder: newStakeholder,
+            token: 'mock_access_token_' + Date.now(),
+            refreshToken: 'mock_refresh_token_' + Date.now(),
             isAuthenticated: true,
             isLoading: false
           })
