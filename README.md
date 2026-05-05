@@ -163,7 +163,7 @@ Role-based access control with granular permissions for:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/AZHIK/safenest_admin_dashboard.git
 cd safenest-admin-dashboard
 ```
 
