@@ -45,8 +45,8 @@ export default function RegisterPage() {
       return
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (formData.password.length < 12) {
+      setError('Password must be at least 12 characters')
       return
     }
 
@@ -196,7 +196,7 @@ export default function RegisterPage() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
                 disabled={isLoading}
-                minLength={6}
+                minLength={12}
               />
               <button
                 type="button"
@@ -217,7 +217,7 @@ export default function RegisterPage() {
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               required
               disabled={isLoading}
-              minLength={6}
+              minLength={12}
             />
           </div>
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { Stakeholder, StakeholderRole } from '@/types'
+import { apiClient } from '@/services/api-client'
 
 interface AuthState {
   stakeholder: Stakeholder | null
@@ -11,6 +12,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>
   register: (userData: RegisterData) => Promise<void>
   logout: () => void
+  fetchProfile: () => Promise<void>
   refreshAccessToken: () => Promise<void>
   hasPermission: (permission: string) => boolean
   hasRole: (role: StakeholderRole | StakeholderRole[]) => boolean
@@ -82,6 +84,19 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
   ]
 }
 
+// Map backend role names to frontend StakeholderRole
+const mapRole = (backendRoles: string[], isSuperAdmin: boolean): StakeholderRole => {
+  if (isSuperAdmin) return 'super_admin';
+  
+  const role = backendRoles[0]?.toLowerCase() || '';
+  if (role.includes('police')) return 'police';
+  if (role.includes('legal')) return 'legal_officer';
+  if (role.includes('counselor')) return 'counselor';
+  if (role.includes('ngo')) return 'ngo_manager';
+  if (role.includes('regional')) return 'regional_manager';
+  return 'help_center';
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -91,95 +106,78 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
 
-      // Mock users for demo
       login: async (email: string, password: string) => {
         set({ isLoading: true })
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800))
-        
         try {
-          // Mock authentication - accept any email with password >= 6 chars
-          if (password.length < 6) {
-            throw new Error('Invalid credentials')
-          }
+          const response = await apiClient.post<{
+            access_token: string,
+            refresh_token: string,
+            token_type: string
+          }>('/api/v1/operator/auth/login', { email, password })
 
-          // Determine role from email or use default
-          let role: StakeholderRole = 'help_center'
-          if (email.includes('admin')) role = 'super_admin'
-          else if (email.includes('police')) role = 'police'
-          else if (email.includes('legal')) role = 'legal_officer'
-          else if (email.includes('counselor')) role = 'counselor'
-          else if (email.includes('ngo')) role = 'ngo_manager'
-          else if (email.includes('regional')) role = 'regional_manager'
-
-          const nameParts = email.split('@')[0].replace(/\./g, ' ').replace(/_/g, ' ').split(' ')
-          const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || 'Demo'
-          const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || 'User'
+          const { access_token, refresh_token } = response.data
           
-          const mockStakeholder: Stakeholder = {
-            id: Math.random().toString(36).substring(2, 9),
-            email,
-            first_name: firstName,
-            last_name: lastName,
-            phone_number: '+1 (555) 000-0000',
-            role,
-            department: role === 'police' ? 'Domestic Violence Unit' : role === 'counselor' ? 'Counseling Services' : null,
-            region: null,
-            is_active: true,
-            last_login_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          
-          set({
-            stakeholder: mockStakeholder,
-            token: 'mock_access_token_' + Date.now(),
-            refreshToken: 'mock_refresh_token_' + Date.now(),
-            isAuthenticated: true,
-            isLoading: false
+          set({ 
+            token: access_token, 
+            refreshToken: refresh_token,
+            isAuthenticated: true 
           })
-        } catch (error) {
+
+          // Fetch profile after login
+          await get().fetchProfile()
+          
           set({ isLoading: false })
+        } catch (error: any) {
+          set({ isLoading: false, isAuthenticated: false, token: null, refreshToken: null })
+          throw error
+        }
+      },
+
+      fetchProfile: async () => {
+        try {
+          const response = await apiClient.get<any>('/api/v1/operator/auth/me')
+          const data = response.data
+
+          const stakeholder: Stakeholder = {
+            id: data.id,
+            email: data.email,
+            full_name: data.full_name,
+            phone: data.phone,
+            is_active: data.is_active,
+            is_super_admin: data.is_super_admin,
+            email_verified: data.email_verified,
+            last_login: data.last_login,
+            created_at: data.created_at,
+            roles: data.roles,
+            role: mapRole(data.roles, data.is_super_admin),
+            // Legacy/Derived fields
+            first_name: data.full_name.split(' ')[0],
+            last_name: data.full_name.split(' ').slice(1).join(' '),
+            phone_number: data.phone,
+            updated_at: data.created_at // fallback
+          }
+
+          set({ stakeholder })
+        } catch (error) {
+          get().logout()
           throw error
         }
       },
 
       register: async (userData: RegisterData) => {
         set({ isLoading: true })
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
         try {
-          if (userData.password.length < 6) {
-            throw new Error('Password must be at least 6 characters')
-          }
-
-          const nameParts = userData.full_name.split(' ')
-          const newStakeholder: Stakeholder = {
-            id: Math.random().toString(36).substring(2, 9),
+          await apiClient.post('/api/v1/operator/auth/register', {
+            full_name: userData.full_name,
             email: userData.email,
-            first_name: nameParts[0] || 'New',
-            last_name: nameParts.slice(1).join(' ') || 'User',
-            phone_number: userData.phone || null,
-            role: userData.role,
-            department: userData.organization || null,
-            region: null,
-            is_active: true,
-            last_login_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          
-          set({
-            stakeholder: newStakeholder,
-            token: 'mock_access_token_' + Date.now(),
-            refreshToken: 'mock_refresh_token_' + Date.now(),
-            isAuthenticated: true,
-            isLoading: false
+            password: userData.password,
+            phone: userData.phone,
+            organization: userData.organization
           })
-        } catch (error) {
+          
+          set({ isLoading: false })
+        } catch (error: any) {
           set({ isLoading: false })
           throw error
         }
@@ -192,6 +190,12 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           isAuthenticated: false
         })
+        // Optional: Call logout endpoint on backend
+        apiClient.post('/api/v1/operator/auth/logout').catch(() => {})
+        // Redirect to login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/auth/login'
+        }
       },
 
       refreshAccessToken: async () => {
@@ -202,22 +206,16 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('/api/v1/auth/refresh', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `refresh_token=${currentRefreshToken}`
+          const response = await apiClient.post<{
+            access_token: string,
+            refresh_token: string
+          }>('/api/v1/operator/auth/refresh', {
+            refresh_token: currentRefreshToken
           })
 
-          if (!response.ok) {
-            get().logout()
-            return
-          }
-
-          const data = await response.json()
-          
           set({
-            token: data.access_token,
-            refreshToken: data.refresh_token
+            token: response.data.access_token,
+            refreshToken: response.data.refresh_token
           })
         } catch (error) {
           get().logout()

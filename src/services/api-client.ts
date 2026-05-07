@@ -15,7 +15,11 @@ class ApiClient {
     // Request interceptor for auth token
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('auth_token')
+        // Use a dynamic import or require if needed to avoid circular dependencies
+        // but since auth-store is likely imported after this, we can use it here
+        const { useAuthStore } = require('@/store/auth-store')
+        const token = useAuthStore.getState().token
+        
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
@@ -29,9 +33,12 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
+          const { useAuthStore } = require('@/store/auth-store')
           // Handle unauthorized - redirect to login
-          localStorage.removeItem('auth_token')
-          window.location.href = '/auth/login'
+          useAuthStore.getState().logout()
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login'
+          }
         }
         return Promise.reject(error)
       }

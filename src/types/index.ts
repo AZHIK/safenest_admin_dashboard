@@ -28,16 +28,22 @@ export interface TrustedContact {
 export interface Stakeholder {
   id: string;
   email: string;
-  role: StakeholderRole;
-  first_name: string;
-  last_name: string;
-  phone_number: string | null;
-  department: string | null;
-  region: string | null;
+  full_name: string;
+  phone: string | null;
   is_active: boolean;
-  last_login_at: string | null;
+  is_super_admin: boolean;
+  email_verified: boolean;
+  last_login: string | null;
   created_at: string;
-  updated_at: string;
+  roles: string[];
+  // Derived or legacy fields for UI compatibility
+  role: StakeholderRole;
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string | null;
+  department?: string | null;
+  region?: string | null;
+  updated_at?: string;
 }
 
 export type StakeholderRole = 
