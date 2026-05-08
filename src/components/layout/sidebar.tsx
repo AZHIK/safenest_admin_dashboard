@@ -27,7 +27,7 @@ interface SidebarSection {
 const sidebarSections: SidebarSection[] = [
   {
     items: [
-      { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'view_dashboard' },
+      { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'analytics.dashboard' },
     ],
   },
   {
@@ -46,17 +46,17 @@ const sidebarSections: SidebarSection[] = [
   {
     label: 'Communications',
     items: [
-      { title: 'Messages', href: '/messages', icon: MessageSquare, permission: 'view_messages' },
+      { title: 'Messages', href: '/messages', icon: MessageSquare, permission: 'messages.view' },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { title: 'Users & Roles', href: '/users', icon: Users, permission: 'manage_users' },
-      { title: 'Support Centers', href: '/support', icon: Building, permission: 'manage_support_centers' },
-      { title: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'view_analytics' },
-      { title: 'Audit Logs', href: '/audit', icon: FileSearch, permission: 'view_audit_logs' },
-      { title: 'Settings', href: '/settings', icon: Settings, permission: 'manage_settings' },
+      { title: 'Users & Roles', href: '/users', icon: Users, permission: 'users.view' },
+      { title: 'Support Centers', href: '/support', icon: Building, permission: 'support_centers.view' },
+      { title: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'analytics.view' },
+      { title: 'Audit Logs', href: '/audit', icon: FileSearch, permission: 'audit_logs.view' },
+      { title: 'Settings', href: '/settings', icon: Settings, permission: 'system.settings_view' },
     ],
   },
 ]

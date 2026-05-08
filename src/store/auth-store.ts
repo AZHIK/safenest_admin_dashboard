@@ -29,65 +29,65 @@ interface RegisterData {
 
 const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
   super_admin: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS permissions
     'sos.view', 'sos.assign', 'sos.escalate',
     // Incident report permissions
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
     // Administration
     'manage_users', 'manage_stakeholders',
-    'manage_support_centers', 'training.view', 'training.manage',
-    'view_analytics', 'view_audit_logs',
-    'manage_settings', 'view_messages'
+    'manage_support_centers', 'support_centers.view', 'support_centers.manage', 'training.view', 'training.manage',
+    'analytics.view', 'audit_logs.view',
+    'system.settings_view', 'messages.view'
   ],
   police: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS: police can view, assign responders, and escalate
     'sos.view', 'sos.assign', 'sos.escalate',
     // Reports: police can view reports and evidence
     'reports.view', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view', 'support_centers.view'
   ],
   legal_officer: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS: legal can only monitor
     'sos.view',
     // Reports: legal handles full review lifecycle
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view', 'support_centers.view'
   ],
   counselor: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS: counselors monitor alerts
     'sos.view',
     // Reports: counselors review but not resolve
     'reports.view', 'reports.review', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view', 'support_centers.view'
   ],
   help_center: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS: help center monitors
     'sos.view',
     // Reports: help center can view only
     'reports.view',
-    'view_analytics', 'view_messages', 'training.view'
+    'view_analytics', 'view_messages', 'training.view', 'support_centers.view'
   ],
   ngo_manager: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS: NGO monitors
     'sos.view',
     // Reports: NGO reviews and views evidence
     'reports.view', 'reports.review', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view', 'support_centers.view'
   ],
   regional_manager: [
-    'view_dashboard',
+    'analytics.dashboard',
     // SOS: regional manager can monitor and assign
     'sos.view', 'sos.assign',
     // Reports: regional manager handles full report lifecycle
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
-    'view_analytics', 'view_audit_logs',
-    'manage_support_centers', 'view_messages', 'training.view'
+    'view_analytics', 'audit_logs.view',
+    'support_centers.view', 'view_messages', 'training.view'
   ]
 }
 
