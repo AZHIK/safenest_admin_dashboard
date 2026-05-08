@@ -30,57 +30,64 @@ interface RegisterData {
 const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
   super_admin: [
     'view_dashboard',
-    'manage_sos',
-    'manage_cases',
-    'manage_users',
-    'manage_stakeholders',
-    'manage_support_centers',
-    'manage_training',
-    'view_analytics',
-    'view_audit_logs',
-    'manage_settings'
+    // SOS permissions
+    'sos.view', 'sos.assign', 'sos.escalate',
+    // Incident report permissions
+    'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
+    // Administration
+    'manage_users', 'manage_stakeholders',
+    'manage_support_centers', 'manage_training',
+    'view_analytics', 'view_audit_logs',
+    'manage_settings', 'view_messages'
   ],
   police: [
     'view_dashboard',
-    'view_sos',
-    'manage_cases',
-    'view_analytics',
-    'view_audit_logs'
+    // SOS: police can view, assign responders, and escalate
+    'sos.view', 'sos.assign', 'sos.escalate',
+    // Reports: police can view reports and evidence
+    'reports.view', 'evidence.view',
+    'view_analytics', 'view_audit_logs', 'view_messages'
   ],
   legal_officer: [
     'view_dashboard',
-    'view_sos',
-    'manage_cases',
-    'view_analytics',
-    'view_audit_logs'
+    // SOS: legal can only monitor
+    'sos.view',
+    // Reports: legal handles full review lifecycle
+    'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
+    'view_analytics', 'view_audit_logs', 'view_messages'
   ],
   counselor: [
     'view_dashboard',
-    'view_sos',
-    'manage_cases',
-    'view_analytics',
-    'view_audit_logs'
+    // SOS: counselors monitor alerts
+    'sos.view',
+    // Reports: counselors review but not resolve
+    'reports.view', 'reports.review', 'evidence.view',
+    'view_analytics', 'view_audit_logs', 'view_messages'
   ],
   help_center: [
     'view_dashboard',
-    'view_sos',
-    'manage_cases',
-    'view_analytics'
+    // SOS: help center monitors
+    'sos.view',
+    // Reports: help center can view only
+    'reports.view',
+    'view_analytics', 'view_messages'
   ],
   ngo_manager: [
     'view_dashboard',
-    'view_sos',
-    'manage_cases',
-    'view_analytics',
-    'view_audit_logs'
+    // SOS: NGO monitors
+    'sos.view',
+    // Reports: NGO reviews and views evidence
+    'reports.view', 'reports.review', 'evidence.view',
+    'view_analytics', 'view_audit_logs', 'view_messages'
   ],
   regional_manager: [
     'view_dashboard',
-    'view_sos',
-    'manage_cases',
-    'view_analytics',
-    'view_audit_logs',
-    'manage_support_centers'
+    // SOS: regional manager can monitor and assign
+    'sos.view', 'sos.assign',
+    // Reports: regional manager handles full report lifecycle
+    'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
+    'view_analytics', 'view_audit_logs',
+    'manage_support_centers', 'view_messages'
   ]
 }
 

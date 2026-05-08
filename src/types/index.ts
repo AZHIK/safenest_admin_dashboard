@@ -75,7 +75,7 @@ export interface SOSAlert {
   recent_locations?: LocationPing[];
 }
 
-export type SOSStatus = 'active' | 'resolved' | 'cancelled';
+export type SOSStatus = 'active' | 'assigned' | 'escalated' | 'resolved' | 'cancelled';
 
 export interface LocationPing {
   id: string;

@@ -39,9 +39,9 @@ export interface SOSStatusUpdateRequest {
 }
 
 export class SOSService {
-  // Get all active SOS alerts
+  // Get all active SOS alerts for operator monitor
   static async getActiveAlerts() {
-    const response = await apiClient.get<SOSAlert[]>('/api/v1/sos/active')
+    const response = await apiClient.get<SOSAlert[]>('/api/v1/operator/sos-monitor/alerts')
     return response.data
   }
 
@@ -58,19 +58,19 @@ export class SOSService {
     return response.data
   }
 
-  // Create new SOS alert
+  // Create new SOS alert (Survivor only, but kept for completeness if needed)
   static async createSOSAlert(data: SOSCreateRequest) {
     const response = await apiClient.post<SOSAlert>('/api/v1/sos/trigger', data)
     return response.data
   }
 
-  // Update location for SOS alert
+  // Update location for SOS alert (Survivor only)
   static async updateLocation(data: LocationUpdateRequest) {
     const response = await apiClient.post<LocationPing>('/api/v1/sos/location-update', data)
     return response.data
   }
 
-  // Batch location updates
+  // Batch location updates (Survivor only)
   static async batchLocationUpdates(alertId: string, locations: LocationUpdateRequest[]) {
     const response = await apiClient.post('/api/v1/sos/location-batch', {
       alert_id: alertId,
@@ -79,9 +79,9 @@ export class SOSService {
     return response.data
   }
 
-  // Update SOS status
+  // Update SOS status (Operator version)
   static async updateSOSStatus(alertId: string, data: SOSStatusUpdateRequest) {
-    const response = await apiClient.patch<SOSAlert>(`/api/v1/sos/${alertId}/status`, data)
+    const response = await apiClient.patch<SOSAlert>(`/api/v1/operator/sos-monitor/alerts/${alertId}/status`, data)
     return response.data
   }
 
