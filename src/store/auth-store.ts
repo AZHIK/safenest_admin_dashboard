@@ -36,7 +36,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
     // Administration
     'manage_users', 'manage_stakeholders',
-    'manage_support_centers', 'manage_training',
+    'manage_support_centers', 'training.view', 'training.manage',
     'view_analytics', 'view_audit_logs',
     'manage_settings', 'view_messages'
   ],
@@ -46,7 +46,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view', 'sos.assign', 'sos.escalate',
     // Reports: police can view reports and evidence
     'reports.view', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
   ],
   legal_officer: [
     'view_dashboard',
@@ -54,7 +54,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: legal handles full review lifecycle
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
   ],
   counselor: [
     'view_dashboard',
@@ -62,7 +62,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: counselors review but not resolve
     'reports.view', 'reports.review', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
   ],
   help_center: [
     'view_dashboard',
@@ -70,7 +70,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: help center can view only
     'reports.view',
-    'view_analytics', 'view_messages'
+    'view_analytics', 'view_messages', 'training.view'
   ],
   ngo_manager: [
     'view_dashboard',
@@ -78,7 +78,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: NGO reviews and views evidence
     'reports.view', 'reports.review', 'evidence.view',
-    'view_analytics', 'view_audit_logs', 'view_messages'
+    'view_analytics', 'view_audit_logs', 'view_messages', 'training.view'
   ],
   regional_manager: [
     'view_dashboard',
@@ -87,7 +87,7 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     // Reports: regional manager handles full report lifecycle
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
     'view_analytics', 'view_audit_logs',
-    'manage_support_centers', 'view_messages'
+    'manage_support_centers', 'view_messages', 'training.view'
   ]
 }
 

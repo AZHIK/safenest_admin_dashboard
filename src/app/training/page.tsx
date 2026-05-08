@@ -1,232 +1,312 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  TrainingService,
+  TrainingCategory,
+  TrainingLesson,
+  TrainingLessonDetail
+} from '@/services/training-service'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BookOpen, Plus, Search, Play, Clock, Users, Star, FileText, Video, CheckCircle, MoreHorizontal } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import {
+  BookOpen,
+  Plus,
+  Edit2,
+  Trash2,
+  Video,
+  Layers,
+  Search,
+  ExternalLink,
+  ChevronRight,
+  MoreVertical
+} from 'lucide-react'
+import { TrainingCategoryDialog } from '@/components/training/TrainingCategoryDialog'
+import { TrainingLessonDialog } from '@/components/training/TrainingLessonDialog'
+import { cn } from '@/lib/utils'
 
-const mockCourses = [
-  { id: 1, title: 'Crisis Response Protocols', type: 'Video', duration: '2h 30m', enrolled: 45, rating: 4.8, status: 'published', category: 'Emergency Response' },
-  { id: 2, title: 'Trauma-Informed Care', type: 'Course', duration: '4h 15m', enrolled: 78, rating: 4.9, status: 'published', category: 'Counseling' },
-  { id: 3, title: 'Legal Advocacy Basics', type: 'Document', duration: '1h 45m', enrolled: 32, rating: 4.6, status: 'published', category: 'Legal' },
-  { id: 4, title: 'Safety Planning Workshop', type: 'Workshop', duration: '3h 00m', enrolled: 56, rating: 4.7, status: 'published', category: 'Prevention' },
-  { id: 5, title: 'Cultural Competency Training', type: 'Video', duration: '2h 00m', enrolled: 0, rating: 0, status: 'draft', category: 'Diversity' },
-]
+export default function TrainingManagementPage() {
+  const [categories, setCategories] = useState<TrainingCategory[]>([])
+  const [lessons, setLessons] = useState<TrainingLesson[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('lessons')
 
-const statusColors: Record<string, string> = {
-  published: 'bg-safe-100 text-safe-700',
-  draft: 'bg-gray-100 text-gray-700',
-  archived: 'bg-amber-100 text-amber-700',
-}
+  // Dialog states
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [lessonDialogOpen, setLessonDialogOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<TrainingCategory | null>(null)
+  const [selectedLesson, setSelectedLesson] = useState<TrainingLesson | null>(null)
 
-const typeIcons: Record<string, any> = {
-  Video: Video,
-  Course: BookOpen,
-  Document: FileText,
-  Workshop: Users,
-}
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const [cats, less] = await Promise.all([
+        TrainingService.getCategories(),
+        TrainingService.getLessons()
+      ])
+      setCategories(cats)
+      setLessons(less)
+    } catch (error) {
+      console.error('Failed to fetch training data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-export default function TrainingPage() {
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const handleCreateCategory = async (data: Partial<TrainingCategory>) => {
+    await TrainingService.createCategory(data)
+    fetchData()
+  }
+
+  const handleUpdateCategory = async (data: Partial<TrainingCategory>) => {
+    if (selectedCategory) {
+      await TrainingService.updateCategory(selectedCategory.id, data)
+      fetchData()
+    }
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+    if (window.confirm('Are you sure? This will delete the category and all its lessons.')) {
+      await TrainingService.deleteCategory(id)
+      fetchData()
+    }
+  }
+
+  const handleCreateLesson = async (data: Partial<TrainingLessonDetail>) => {
+    await TrainingService.createLesson(data)
+    fetchData()
+  }
+
+  const handleUpdateLesson = async (data: Partial<TrainingLessonDetail>) => {
+    if (selectedLesson) {
+      await TrainingService.updateLesson(selectedLesson.id, data)
+      fetchData()
+    }
+  }
+
+  const handleDeleteLesson = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this lesson?')) {
+      await TrainingService.deleteLesson(id)
+      fetchData()
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-2 bg-emergency-100 rounded-lg">
-              <BookOpen className="h-8 w-8 text-emergency-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Training Content</h1>
-              <p className="text-gray-500">Manage courses, workshops, and educational materials</p>
-            </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Training Resources</h1>
+            <p className="text-gray-500">Manage educational materials, videos, and self-defense guides.</p>
           </div>
-          <Button className="bg-emergency-600 hover:bg-emergency-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Content
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedCategory(null)
+                setCategoryDialogOpen(true)
+              }}
+              className="gap-2"
+            >
+              <Layers className="h-4 w-4" />
+              New Category
+            </Button>
+            <Button
+              onClick={() => {
+                setSelectedLesson(null)
+                setLessonDialogOpen(true)
+              }}
+              className="gap-2 bg-red-600 hover:bg-red-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Lesson
+            </Button>
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-gray-900">18</div>
-              <p className="text-sm text-gray-500">Total Courses</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-emergency-600">245</div>
-              <p className="text-sm text-gray-500">Active Learners</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-safe-600">1,234</div>
-              <p className="text-sm text-gray-500">Completions This Month</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold text-amber-600">4.7</div>
-              <p className="text-sm text-gray-500">Average Rating</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="content" className="w-full">
-          <TabsList>
-            <TabsTrigger value="content">All Content</TabsTrigger>
-            <TabsTrigger value="learners">Learners</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+            <TabsTrigger value="lessons">Lessons</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="content" className="space-y-4">
-            {/* Filters */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-4">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input placeholder="Search training content..." className="pl-10" />
-                  </div>
-                  <Button variant="outline" size="sm">Filter</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Courses Grid */}
+          {/* Lessons Tab */}
+          <TabsContent value="lessons" className="space-y-4 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockCourses.map((course) => {
-                const TypeIcon = typeIcons[course.type] || FileText
-                return (
-                  <Card key={course.id} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          <TypeIcon className="h-5 w-5 text-gray-600" />
-                        </div>
-                        <Badge className={statusColors[course.status]}>{course.status}</Badge>
-                      </div>
-
-                      <h3 className="font-semibold text-gray-900 mb-1">{course.title}</h3>
-                      <p className="text-sm text-gray-500 mb-4">{course.category}</p>
-
-                      <div className="flex items-center space-x-4 mb-4 text-sm text-gray-600">
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {course.duration}
-                        </div>
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-1" />
-                          {course.enrolled} enrolled
-                        </div>
-                        {course.rating > 0 && (
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 mr-1 text-yellow-400" />
-                            {course.rating}
+              {loading ? (
+                Array(6).fill(0).map((_, i) => (
+                  <Card key={i} className="animate-pulse h-[200px]" />
+                ))
+              ) : lessons.length === 0 ? (
+                <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border-2 border-dashed">
+                  <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900">No lessons found</h3>
+                  <p className="text-gray-500">Get started by creating your first training lesson.</p>
+                </div>
+              ) : (
+                lessons.map((lesson) => {
+                  const category = categories.find(c => c.id === lesson.category_id)
+                  return (
+                    <Card key={lesson.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="aspect-video bg-gray-100 relative group">
+                        {lesson.thumbnail_url ? (
+                          <img
+                            src={lesson.thumbnail_url}
+                            alt={lesson.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <Video className="h-12 w-12" />
                           </div>
                         )}
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          <Badge className={cn(
+                            lesson.difficulty_level === 'beginner' ? 'bg-green-500' :
+                            lesson.difficulty_level === 'intermediate' ? 'bg-blue-500' : 'bg-orange-500'
+                          )}>
+                            {lesson.difficulty_level}
+                          </Badge>
+                        </div>
                       </div>
-
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" className="flex-1">
-                          <Play className="h-4 w-4 mr-1" />
-                          Preview
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                      <CardHeader className="p-4 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                            {category?.name || 'Uncategorized'}
+                          </span>
+                          {!lesson.is_active && (
+                            <Badge variant="outline" className="text-[10px] h-4">Draft</Badge>
+                          )}
+                        </div>
+                        <CardTitle className="text-lg line-clamp-1">{lesson.title}</CardTitle>
+                        <CardDescription className="line-clamp-2 text-xs">
+                          {lesson.description || 'No description provided.'}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0 flex items-center justify-between">
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" />
+                          {lesson.duration_minutes} min
+                        </span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              setSelectedLesson(lesson)
+                              setLessonDialogOpen(true)
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteLesson(lesson.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })
+              )}
             </div>
           </TabsContent>
 
-          <TabsContent value="learners">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Learners</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { name: 'Jennifer Adams', role: 'Case Worker', completed: 12, hours: 45 },
-                    { name: 'Michael Roberts', role: 'Officer', completed: 10, hours: 38 },
-                    { name: 'Sarah Chen', role: 'Counselor', completed: 9, hours: 36 },
-                    { name: 'David Martinez', role: 'Legal Advocate', completed: 8, hours: 32 },
-                  ].map((learner, index) => (
-                    <div key={learner.name} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-emergency-100 rounded-full flex items-center justify-center">
-                          <span className="text-emergency-600 font-semibold">{learner.name.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">{learner.name}</h4>
-                          <p className="text-sm text-gray-500">{learner.role}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-6 text-sm">
-                        <div className="text-center">
-                          <div className="font-semibold text-gray-900">{learner.completed}</div>
-                          <div className="text-gray-500">Courses</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-semibold text-gray-900">{learner.hours}h</div>
-                          <div className="text-gray-500">Hours</div>
-                        </div>
-                        {index === 0 && <CheckCircle className="h-5 w-5 text-safe-600" />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Course Completion Rate</CardTitle>
-                </CardHeader>
-                <CardContent className="h-[200px] flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-emergency-600">78%</div>
-                    <p className="text-sm text-gray-500">Average completion rate</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Popular Categories</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {['Emergency Response', 'Counseling', 'Legal', 'Prevention', 'Diversity'].map((cat, i) => (
-                      <div key={cat} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">{cat}</span>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div className="bg-emergency-500 h-2 rounded-full" style={{ width: `${[85, 72, 65, 58, 45][i]}%` }} />
+          {/* Categories Tab */}
+          <TabsContent value="categories" className="space-y-4 pt-4">
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="px-6 py-3">Category</th>
+                    <th className="px-6 py-3">Slug</th>
+                    <th className="px-6 py-3">Lessons</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {categories.map((category) => (
+                    <tr key={category.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="h-8 w-8 rounded-lg flex items-center justify-center text-white"
+                            style={{ backgroundColor: category.color_code || '#EF4444' }}
+                          >
+                            <Layers className="h-4 w-4" />
                           </div>
-                          <span className="text-sm text-gray-500">{[85, 72, 65, 58, 45][i]}%</span>
+                          <div>
+                            <p className="font-medium text-gray-900">{category.name}</p>
+                            {category.is_featured && (
+                              <span className="text-[10px] text-amber-600 font-bold">FEATURED</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 font-mono text-xs">
+                        {category.slug}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="secondary">{category.lesson_count} Lessons</Badge>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedCategory(category)
+                              setCategoryDialogOpen(true)
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </TabsContent>
         </Tabs>
       </div>
+
+      <TrainingCategoryDialog
+        open={categoryDialogOpen}
+        onOpenChange={setCategoryDialogOpen}
+        category={selectedCategory}
+        onSave={selectedCategory ? handleUpdateCategory : handleCreateCategory}
+      />
+
+      <TrainingLessonDialog
+        open={lessonDialogOpen}
+        onOpenChange={setLessonDialogOpen}
+        lesson={selectedLesson}
+        categories={categories}
+        onSave={selectedLesson ? handleUpdateLesson : handleCreateLesson}
+      />
     </DashboardLayout>
   )
 }

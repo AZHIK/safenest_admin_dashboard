@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard, AlertTriangle, FileText, MessageSquare,
   Users, BarChart3, FileSearch, Settings, Menu, X,
-  Shield, Phone, Building, LogOut
+  Shield, Phone, Building, LogOut, BookOpen
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -40,6 +40,7 @@ const sidebarSections: SidebarSection[] = [
     label: 'Documentation',
     items: [
       { title: 'Incident Reports', href: '/reports', icon: FileText, permission: 'reports.view' },
+      { title: 'Training', href: '/training', icon: BookOpen, permission: 'training.view' },
     ],
   },
   {
