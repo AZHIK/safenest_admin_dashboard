@@ -2,6 +2,9 @@ import { IncidentReport } from '@/types'
 import { Calendar, MapPin, Phone, User, Hash, Shield, FileText } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { ReportStatusBadge } from './ReportStatusBadge'
+import { useState, useEffect } from 'react'
+import { decryptData, EncryptionMetadata } from '@/lib/decryption'
+import { Loader2 } from 'lucide-react'
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
   assault:          'Assault',
@@ -48,6 +51,35 @@ function DetailRow({
 }
 
 export function ReportDetailsCard({ report }: ReportDetailsCardProps) {
+  const [decryptedDescription, setDecryptedDescription] = useState<string | null>(null)
+  const [isDecrypting, setIsDecrypting] = useState(false)
+  const [decryptError, setDecryptError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function decrypt() {
+      if (!report.description_encrypted || !report.encryption_metadata) {
+        return
+      }
+
+      setIsDecrypting(true)
+      setDecryptError(null)
+
+      try {
+        const binaryData = Uint8Array.from(atob(report.description_encrypted), c => c.charCodeAt(0))
+        const decryptedBuffer = await decryptData(binaryData, report.encryption_metadata as EncryptionMetadata)
+        const text = new TextDecoder().decode(decryptedBuffer)
+        setDecryptedDescription(text)
+      } catch (err) {
+        console.error('Failed to decrypt description:', err)
+        setDecryptError('Unable to decrypt the incident narrative. The security key may be missing or invalid.')
+      } finally {
+        setIsDecrypting(false)
+      }
+    }
+
+    decrypt()
+  }, [report.description_encrypted, report.encryption_metadata])
+
   const typeColor = REPORT_TYPE_COLORS[report.report_type] ?? 'bg-gray-100 text-gray-700'
   const typeLabel = REPORT_TYPE_LABELS[report.report_type] ?? report.report_type
 
@@ -128,6 +160,30 @@ export function ReportDetailsCard({ report }: ReportDetailsCardProps) {
             value={formatDateTime(report.updated_at)}
           />
         )}
+      </div>
+
+      {/* Incident Description (Decrypted) */}
+      <div className="px-5 py-5 border-t border-slate-100 bg-slate-50/30">
+        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <FileText className="h-3.5 w-3.5" />
+          Incident Narrative
+        </h4>
+        <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm min-h-[100px]">
+          {isDecrypting ? (
+            <div className="flex flex-col items-center justify-center py-4 text-slate-400">
+              <Loader2 className="h-5 w-5 animate-spin mb-2" />
+              <p className="text-xs">Decrypting narrative...</p>
+            </div>
+          ) : decryptError ? (
+            <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-100">
+              {decryptError}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {decryptedDescription || 'No description provided.'}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

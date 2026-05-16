@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { LocationPing } from '@/types'
 import { MapPin, Navigation, Wifi, Battery, Clock } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
+import { OpenStreetMap } from '@/components/maps/OpenStreetMap'
+import { MapModal } from '@/components/maps/MapModal'
 
 interface SOSMapPanelProps {
   latitude: number
@@ -20,47 +23,49 @@ export function SOSMapPanel({
   recentLocations = [],
 }: SOSMapPanelProps) {
   const latestPing = recentLocations[recentLocations.length - 1]
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false)
+
+  const handleMapClick = (lat: number, lng: number) => {
+    setIsMapModalOpen(true)
+  }
 
   return (
     <div className="space-y-3">
-      {/* Map Placeholder */}
-      <div className="relative w-full h-36 bg-gradient-to-br from-slate-700 to-slate-900 rounded-lg overflow-hidden border border-slate-600">
-        {/* Grid lines to simulate map */}
-        <svg className="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
-        </svg>
-
-        {/* Road lines */}
-        <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
-          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#64748b" strokeWidth="3" />
-          <line x1="40%" y1="0" x2="40%" y2="100%" stroke="#64748b" strokeWidth="2" />
-          <line x1="70%" y1="0" x2="70%" y2="100%" stroke="#64748b" strokeWidth="2" />
-          <line x1="0" y1="30%" x2="100%" y2="30%" stroke="#64748b" strokeWidth="1.5" />
-          <line x1="0" y1="70%" x2="100%" y2="70%" stroke="#64748b" strokeWidth="1.5" />
-        </svg>
-
-        {/* Accuracy circle */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 animate-pulse" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-lg" />
-            </div>
-          </div>
-        </div>
-
-        {/* Coordinates overlay */}
-        <div className="absolute bottom-2 left-2 right-2 bg-black/50 backdrop-blur-sm rounded px-2 py-1">
-          <p className="text-white text-xs font-mono">
-            {latitude.toFixed(6)}, {longitude.toFixed(6)}
-          </p>
-        </div>
-      </div>
+      {/* OpenStreetMap */}
+      <OpenStreetMap
+        center={[latitude, longitude]}
+        zoom={15}
+        markers={[
+          {
+            id: 'current',
+            lat: latitude,
+            lng: longitude,
+            popup: address || 'Current Location',
+          },
+        ]}
+        polylines={
+          recentLocations.length > 1
+            ? [
+                {
+                  id: 'history',
+                  positions: recentLocations.map((loc) => [loc.latitude, loc.longitude]),
+                  color: '#ef4444',
+                },
+              ]
+            : []
+        }
+        accuracyCircle={
+          accuracy
+            ? {
+                center: [latitude, longitude],
+                radius: accuracy,
+                color: '#ef4444',
+              }
+            : undefined
+        }
+        onClick={handleMapClick}
+        className="w-full h-64 rounded-lg border border-slate-300 cursor-pointer"
+      />
 
       {/* Location Info */}
       <div className="space-y-2">
@@ -121,6 +126,42 @@ export function SOSMapPanel({
           </div>
         </div>
       )}
+
+      {/* Map Modal */}
+      <MapModal
+        open={isMapModalOpen}
+        onOpenChange={setIsMapModalOpen}
+        center={[latitude, longitude]}
+        title={address || 'Location Details'}
+        markers={[
+          {
+            id: 'current',
+            lat: latitude,
+            lng: longitude,
+            popup: address || 'Current Location',
+          },
+        ]}
+        polylines={
+          recentLocations.length > 1
+            ? [
+                {
+                  id: 'history',
+                  positions: recentLocations.map((loc) => [loc.latitude, loc.longitude]),
+                  color: '#ef4444',
+                },
+              ]
+            : []
+        }
+        accuracyCircle={
+          accuracy
+            ? {
+                center: [latitude, longitude],
+                radius: accuracy,
+                color: '#ef4444',
+              }
+            : undefined
+        }
+      />
     </div>
   )
 }

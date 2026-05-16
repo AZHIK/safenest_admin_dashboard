@@ -15,7 +15,7 @@ This is the stakeholder web platform for SafeNest - a comprehensive GBV (Gender-
 - **Data Fetching**: TanStack Query
 - **API Client**: Axios
 - **Real-time**: WebSocket (Socket.IO)
-- **Maps**: Leaflet/React-Leaflet
+- **Maps**: Leaflet/React-Leaflet with OpenStreetMap
 - **Charts**: Recharts
 
 ## 📁 Project Structure
@@ -190,8 +190,7 @@ npm run dev
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
-# Map Configuration
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
+# Map Configuration (OpenStreetMap - no API key required)
 NEXT_PUBLIC_DEFAULT_LAT=40.7128
 NEXT_PUBLIC_DEFAULT_LNG=-74.0060
 

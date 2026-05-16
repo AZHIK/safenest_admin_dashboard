@@ -104,6 +104,7 @@ export interface IncidentReport {
   incident_latitude: number | null;
   incident_longitude: number | null;
   incident_address: string | null;
+  description_encrypted: string | null;
   encryption_metadata: object | null;
   created_at: string;
   updated_at: string | null;
