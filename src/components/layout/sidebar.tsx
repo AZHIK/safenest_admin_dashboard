@@ -53,6 +53,7 @@ const sidebarSections: SidebarSection[] = [
     label: 'Administration',
     items: [
       { title: 'Users & Roles', href: '/users', icon: Users, permission: 'operators.view' },
+      { title: 'Mobile App Users', href: '/app-users', icon: Phone, permission: 'users.view' },
       { title: 'Support Centers', href: '/support', icon: Building, permission: 'support_centers.view' },
       // { title: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'analytics.view' },
       // { title: 'Audit Logs', href: '/audit', icon: FileSearch, permission: 'audit_logs.view' },
