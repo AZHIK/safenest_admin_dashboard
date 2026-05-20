@@ -16,6 +16,7 @@ interface AuthState {
   refreshAccessToken: () => Promise<void>
   hasPermission: (permission: string) => boolean
   hasRole: (role: StakeholderRole | StakeholderRole[]) => boolean
+  updateSetupStatus: (status: boolean) => void
 }
 
 interface RegisterData {
@@ -158,6 +159,7 @@ export const useAuthStore = create<AuthState>()(
             created_at: data.created_at,
             roles: data.roles,
             role: mapRole(data.roles, data.is_super_admin),
+            setup_completed: data.setup_completed,
             // Legacy/Derived fields
             first_name: data.full_name.split(' ')[0],
             last_name: data.full_name.split(' ').slice(1).join(' '),
@@ -246,6 +248,13 @@ export const useAuthStore = create<AuthState>()(
         }
         
         return stakeholder.role === role
+      },
+      
+      updateSetupStatus: (status: boolean) => {
+        const { stakeholder } = get()
+        if (stakeholder) {
+          set({ stakeholder: { ...stakeholder, setup_completed: status } })
+        }
       }
     }),
     {

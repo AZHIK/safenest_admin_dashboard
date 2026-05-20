@@ -66,4 +66,14 @@ export class SupportCenterService {
   static async deleteCenter(id: string) {
     await apiClient.delete(`/api/v1/operator/support-centers/${id}`)
   }
+
+  static async getMyCenter() {
+    const response = await apiClient.get<SupportCenter>('/api/v1/operator/me/support-center')
+    return response.data
+  }
+
+  static async setupMyCenter(data: Partial<SupportCenter>) {
+    const response = await apiClient.post<SupportCenter>('/api/v1/operator/me/support-center', data)
+    return response.data
+  }
 }

@@ -1,19 +1,29 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
 import { Loader2 } from 'lucide-react'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const pathname = usePathname()
+  const { isAuthenticated, isLoading, stakeholder } = useAuthStore()
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login')
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        router.push('/auth/login')
+      } else if (
+        stakeholder && 
+        !stakeholder.setup_completed && 
+        !stakeholder.is_super_admin && 
+        pathname !== '/setup'
+      ) {
+        router.push('/setup')
+      }
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, stakeholder, router, pathname])
 
   if (isLoading) {
     return (

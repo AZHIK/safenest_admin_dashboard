@@ -36,6 +36,7 @@ export interface Stakeholder {
   last_login: string | null;
   created_at: string;
   roles: string[];
+  setup_completed: boolean;
   // Derived or legacy fields for UI compatibility
   role: StakeholderRole;
   first_name?: string;
