@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge'
 import { IncidentReport, ReportStatus, ReportType } from '@/types'
 import { reportService } from '@/services/report-service'
@@ -14,72 +15,6 @@ import {
 import { formatDate, getRelativeTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const MOCK_REPORTS: IncidentReport[] = [
-  {
-    id: 'rpt-001', report_number: 'RPT-2024-001', report_type: 'assault',
-    status: 'under_review', is_anonymous: false,
-    incident_date: new Date(Date.now() - 86400000).toISOString(),
-    incident_latitude: 40.7128, incident_longitude: -74.006,
-    incident_address: '123 Main St, New York, NY',
-    encryption_metadata: null, created_at: new Date(Date.now() - 86400000).toISOString(),
-    updated_at: new Date(Date.now() - 3600000).toISOString(),
-    client_created_at: null, offline_id: null,
-    user: { id: 'u1', phone_number: '+1 (212) 555-0101', country_code: 'US',
-      is_anonymous: false, is_verified: true, language_preference: 'en',
-      status: 'active', last_login_at: null, created_at: new Date().toISOString() },
-    evidence_files: [],
-  },
-  {
-    id: 'rpt-002', report_number: 'RPT-2024-002', report_type: 'domestic_violence',
-    status: 'new', is_anonymous: true,
-    incident_date: new Date(Date.now() - 172800000).toISOString(),
-    incident_latitude: 40.7589, incident_longitude: -73.985,
-    incident_address: '456 Broadway, New York, NY',
-    encryption_metadata: null, created_at: new Date(Date.now() - 172800000).toISOString(),
-    updated_at: null, client_created_at: null, offline_id: null,
-    evidence_files: [],
-  },
-  {
-    id: 'rpt-003', report_number: 'RPT-2024-003', report_type: 'harassment',
-    status: 'new', is_anonymous: false,
-    incident_date: new Date(Date.now() - 259200000).toISOString(),
-    incident_latitude: 40.7489, incident_longitude: -73.968,
-    incident_address: '789 5th Ave, New York, NY',
-    encryption_metadata: null, created_at: new Date(Date.now() - 259200000).toISOString(),
-    updated_at: null, client_created_at: null, offline_id: null,
-    user: { id: 'u3', phone_number: '+1 (347) 555-0133', country_code: 'US',
-      is_anonymous: false, is_verified: true, language_preference: 'en',
-      status: 'active', last_login_at: null, created_at: new Date().toISOString() },
-    evidence_files: [],
-  },
-  {
-    id: 'rpt-004', report_number: 'RPT-2024-004', report_type: 'stalking',
-    status: 'resolved', is_anonymous: false,
-    incident_date: new Date(Date.now() - 604800000).toISOString(),
-    incident_latitude: 40.7061, incident_longitude: -74.009,
-    incident_address: '321 Wall St, New York, NY',
-    encryption_metadata: null, created_at: new Date(Date.now() - 604800000).toISOString(),
-    updated_at: new Date(Date.now() - 172800000).toISOString(),
-    client_created_at: null, offline_id: null,
-    user: { id: 'u4', phone_number: '+1 (718) 555-0144', country_code: 'US',
-      is_anonymous: false, is_verified: true, language_preference: 'en',
-      status: 'active', last_login_at: null, created_at: new Date().toISOString() },
-    evidence_files: [],
-  },
-  {
-    id: 'rpt-005', report_number: 'RPT-2024-005', report_type: 'threat',
-    status: 'under_review', is_anonymous: true,
-    incident_date: new Date(Date.now() - 432000000).toISOString(),
-    incident_latitude: 40.7306, incident_longitude: -73.935,
-    incident_address: '654 Park Ave, Brooklyn, NY',
-    encryption_metadata: null, created_at: new Date(Date.now() - 432000000).toISOString(),
-    updated_at: new Date(Date.now() - 10800000).toISOString(),
-    client_created_at: null, offline_id: null,
-    evidence_files: [],
-  },
-]
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
@@ -108,6 +43,7 @@ const STATUS_TABS = [
 export default function IncidentReportsPage() {
   const [reports, setReports] = useState<IncidentReport[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [statusTab, setStatusTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -117,11 +53,21 @@ export default function IncidentReportsPage() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true)
+      setFetchError(null)
       try {
         const data = await reportService.listReports()
-        setReports(data || [])
-      } catch {
-        setReports(MOCK_REPORTS)
+        if (!Array.isArray(data)) {
+          console.error('Unexpected API response format:', data)
+          setFetchError('API returned unexpected data format')
+          setReports([])
+        } else {
+          setReports(data)
+        }
+      } catch (err: any) {
+        const status = err?.response?.status
+        const msg = err?.response?.data?.detail || err?.message || 'Unknown error'
+        console.error('Failed to fetch reports:', status, msg)
+        setFetchError(status ? `Server error (${status})` : 'Network error')
       } finally {
         setLoading(false)
       }
@@ -156,6 +102,7 @@ export default function IncidentReportsPage() {
   }
 
   return (
+    <PermissionGuard permission="reports.view">
     <DashboardLayout>
       <div className="space-y-5">
 
@@ -254,6 +201,18 @@ export default function IncidentReportsPage() {
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
             </div>
+          ) : fetchError ? (
+            <div className="flex flex-col items-center py-16 text-center">
+              <FileText className="h-10 w-10 mb-3 text-red-300" />
+              <p className="font-medium text-red-500">Failed to load reports</p>
+              <p className="text-xs mt-1 text-gray-400">{fetchError}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Try again
+              </button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-center text-gray-400">
               <FileText className="h-10 w-10 mb-3 text-gray-200" />
@@ -344,5 +303,6 @@ export default function IncidentReportsPage() {
         </div>
       </div>
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { SOSStatusBadge } from '@/components/sos/SOSStatusBadge'
-import { SOSMapPanel } from '@/components/sos/SOSMapPanel'
+import dynamic from 'next/dynamic'
 import { SOSQuickActions } from '@/components/sos/SOSQuickActions'
+
+const SOSMapPanel = dynamic(() => import('@/components/sos/SOSMapPanel').then(m => m.SOSMapPanel), { ssr: false })
 import { SOSAlert } from '@/types'
 import { SOSService } from '@/services/sos-service'
 import { useAuthStore } from '@/store/auth-store'
@@ -13,19 +16,6 @@ import { ArrowLeft, AlertTriangle, Phone, Users, Clock, Radio, Zap, Activity } f
 import { formatDateTime, getRelativeTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-
-const FALLBACK_ALERT: SOSAlert = {
-  id: 'sos-001', user_id: 'u1', status: 'active', alert_type: 'manual', severity: 'critical',
-  initial_latitude: 40.7128, initial_longitude: -74.006, initial_accuracy: 8,
-  initial_address: '123 Main St, New York, NY 10001',
-  message: 'Emergency — Immediate assistance needed.',
-  contacts_notified: 3,
-  created_at: new Date(Date.now() - 4 * 60000).toISOString(),
-  updated_at: null, client_created_at: null, offline_id: null,
-  user: { id: 'u1', phone_number: '+1 (212) 555-0101', country_code: 'US',
-    is_anonymous: false, is_verified: true, language_preference: 'en',
-    status: 'active', last_login_at: new Date().toISOString(), created_at: new Date().toISOString() },
-}
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -46,7 +36,7 @@ export default function SOSDetailPage() {
   useEffect(() => {
     const load = async () => {
       try { setAlert(await SOSService.getAlertById(alertId)) }
-      catch { setAlert({ ...FALLBACK_ALERT, id: alertId }) }
+      catch { console.error('Failed to fetch SOS alert') }
       finally { setLoading(false) }
     }
     load()
@@ -55,30 +45,24 @@ export default function SOSDetailPage() {
   const updateStatus = (status: SOSAlert['status']) =>
     setAlert(a => a ? { ...a, status, updated_at: new Date().toISOString() } : a)
 
-  if (loading) return (
-    <DashboardLayout>
-      <div className="flex items-center justify-center h-64">
-        <Activity className="h-8 w-8 animate-pulse text-red-400" />
-      </div>
-    </DashboardLayout>
-  )
-
-  if (!alert) return (
-    <DashboardLayout>
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <AlertTriangle className="h-10 w-10 text-gray-300" />
-        <p className="text-gray-600">Alert not found</p>
-        <Link href="/sos" className="text-sm text-red-600 hover:underline">← Back to SOS Monitor</Link>
-      </div>
-    </DashboardLayout>
-  )
-
-  const headerBg = alert.severity === 'critical' ? 'from-red-700 to-red-900'
-    : alert.severity === 'high' ? 'from-orange-600 to-orange-800'
+  const headerBg = alert?.severity === 'critical' ? 'from-red-700 to-red-900'
+    : alert?.severity === 'high' ? 'from-orange-600 to-orange-800'
     : 'from-amber-600 to-amber-700'
 
   return (
+    <PermissionGuard permission="sos.view">
     <DashboardLayout>
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Activity className="h-8 w-8 animate-pulse text-red-400" />
+        </div>
+      ) : !alert ? (
+        <div className="flex flex-col items-center justify-center h-64 gap-3">
+          <AlertTriangle className="h-10 w-10 text-gray-300" />
+          <p className="text-gray-600">Alert not found</p>
+          <Link href="/sos" className="text-sm text-red-600 hover:underline">← Back to SOS Monitor</Link>
+        </div>
+      ) : (
       <div className="space-y-5 max-w-5xl">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm">
@@ -220,6 +204,8 @@ export default function SOSDetailPage() {
           </div>
         </div>
       </div>
+      )}
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

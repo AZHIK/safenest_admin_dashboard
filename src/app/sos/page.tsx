@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { SOSAlertCard } from '@/components/sos/SOSAlertCard'
 import { SOSStatusBadge } from '@/components/sos/SOSStatusBadge'
-import { SOSMapPanel } from '@/components/sos/SOSMapPanel'
+import dynamic from 'next/dynamic'
 import { SOSQuickActions } from '@/components/sos/SOSQuickActions'
+
+const SOSMapPanel = dynamic(() => import('@/components/sos/SOSMapPanel').then(m => m.SOSMapPanel), { ssr: false })
 import { SOSAlert } from '@/types'
 import { SOSService } from '@/services/sos-service'
 import { useAuthStore } from '@/store/auth-store'
@@ -42,6 +45,7 @@ export default function SOSMonitorPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [lastRefreshed, setLastRefreshed] = useState(new Date())
   const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   const { hasPermission } = useAuthStore()
   const canAssign   = hasPermission('sos.assign')
@@ -50,17 +54,27 @@ export default function SOSMonitorPage() {
   // Fetch live data
   const fetchAlerts = async () => {
     setLoading(true)
+    setFetchError(null)
     try {
       const data = await SOSService.getActiveAlerts()
-      setAlerts(data || [])
-      
-      // Update selected alert if it exists in the new data
-      if (selectedAlert) {
-        const updated = data.find(a => a.id === selectedAlert.id)
-        if (updated) setSelectedAlert(updated)
+      if (!Array.isArray(data)) {
+        console.error('Unexpected SOS API response format:', data)
+        setFetchError('API returned unexpected data format')
+        setAlerts([])
+      } else {
+        setAlerts(data)
+        
+        // Update selected alert if it exists in the new data
+        if (selectedAlert) {
+          const updated = data.find((a: SOSAlert) => a.id === selectedAlert.id)
+          if (updated) setSelectedAlert(updated)
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch SOS alerts:', error)
+    } catch (err: any) {
+      const status = err?.response?.status
+      const msg = err?.response?.data?.detail || err?.message || 'Unknown error'
+      console.error('Failed to fetch SOS alerts:', status, msg)
+      setFetchError(status ? `Server error (${status})` : 'Network error')
     } finally {
       setLoading(false)
       setLastRefreshed(new Date())
@@ -107,6 +121,7 @@ export default function SOSMonitorPage() {
   const handleResolve = (alert: SOSAlert) => handleUpdateStatus(alert, 'resolved')
 
   return (
+    <PermissionGuard permission="sos.view">
     <DashboardLayout>
       <div className="space-y-5">
 
@@ -212,7 +227,19 @@ export default function SOSMonitorPage() {
 
             {/* Alert Cards */}
             <div className="space-y-3 max-h-[calc(100vh-360px)] overflow-y-auto pr-1">
-              {filteredAlerts.length === 0 ? (
+              {fetchError ? (
+                <div className="bg-white rounded-xl border border-red-200 p-12 text-center">
+                  <AlertTriangle className="h-10 w-10 text-red-300 mx-auto mb-3" />
+                  <p className="text-red-500 font-medium">Failed to load SOS alerts</p>
+                  <p className="text-xs mt-1 text-gray-400">{fetchError}</p>
+                  <button
+                    onClick={fetchAlerts}
+                    className="mt-4 text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : filteredAlerts.length === 0 ? (
                 <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                   <Radio className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 font-medium">No alerts match your filters</p>
@@ -374,5 +401,6 @@ export default function SOSMonitorPage() {
         </div>
       </div>
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

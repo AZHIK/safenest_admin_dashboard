@@ -1,6 +1,7 @@
 'use client'
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,7 @@ import { Settings, Save, Bell, Shield, Users, Database, Globe, Smartphone, Mail,
 
 export default function SettingsPage() {
   return (
+    <PermissionGuard permission="system.settings_view">
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
@@ -50,19 +52,19 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700">Organization Name</label>
-                    <Input defaultValue="SafeNest Coordination Center" />
+                    <Input placeholder="Organization name" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Contact Email</label>
-                    <Input defaultValue="admin@safenest.org" />
+                    <Input placeholder="admin@organization.org" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                    <Input defaultValue="(555) 123-4567" />
+                    <Input placeholder="+1 (555) 000-0000" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Time Zone</label>
-                    <Input defaultValue="America/New_York" />
+                    <Input placeholder="e.g. America/New_York" />
                   </div>
                 </div>
               </CardContent>
@@ -79,11 +81,11 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700">Audit Log Retention (days)</label>
-                    <Input type="number" defaultValue="365" />
+                    <Input type="number" placeholder="e.g. 365" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Message History Retention (days)</label>
-                    <Input type="number" defaultValue="90" />
+                    <Input type="number" placeholder="e.g. 90" />
                   </div>
                 </div>
               </CardContent>
@@ -100,11 +102,11 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {[
-                  { label: 'SOS Alerts', description: 'Receive notifications for new SOS alerts', checked: true },
-                  { label: 'Case Updates', description: 'Notifications when cases are updated', checked: true },
-                  { label: 'New Messages', description: 'Notifications for new secure messages', checked: true },
-                  { label: 'System Alerts', description: 'Important system notifications', checked: true },
-                  { label: 'Weekly Reports', description: 'Weekly summary reports', checked: false },
+                  { label: 'SOS Alerts', description: 'Receive notifications for new SOS alerts' },
+                  { label: 'Case Updates', description: 'Notifications when cases are updated' },
+                  { label: 'New Messages', description: 'Notifications for new secure messages' },
+                  { label: 'System Alerts', description: 'Important system notifications' },
+                  { label: 'Weekly Reports', description: 'Weekly summary reports' },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center justify-between py-2">
                     <div>
@@ -112,7 +114,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-gray-500">{item.description}</p>
                     </div>
                     <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.checked ? 'translate-x-6' : 'translate-x-1'}`} />
+                      <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-1" />
                     </div>
                   </div>
                 ))}
@@ -131,11 +133,11 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Session Timeout (minutes)</label>
-                  <Input type="number" defaultValue="30" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Max Login Attempts</label>
-                  <Input type="number" defaultValue="5" />
+                    <Input type="number" placeholder="e.g. 30" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Max Login Attempts</label>
+                    <Input type="number" placeholder="e.g. 5" />
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <div>
@@ -201,18 +203,11 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm font-medium text-gray-700">System Version</p>
-                    <p className="text-sm text-gray-500">v1.0.0 (Build 2024.01.15)</p>
+                    <p className="text-sm text-gray-500">Loading...</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm font-medium text-gray-700">Database Status</p>
-                    <p className="text-sm text-safe-600 flex items-center">
-                      <div className="w-2 h-2 bg-safe-500 rounded-full mr-2" />
-                      Connected
-                    </p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">Last Backup</p>
-                    <p className="text-sm text-gray-500">2024-01-15 03:00 AM</p>
+                    <p className="text-sm text-gray-500">Checking...</p>
                   </div>
                 </div>
               </CardContent>
@@ -260,5 +255,6 @@ export default function SettingsPage() {
         </Tabs>
       </div>
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

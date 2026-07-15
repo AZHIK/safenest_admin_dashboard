@@ -34,8 +34,8 @@ export default function DashboardPage() {
       const [stats, alerts, cases, users] = await Promise.all([
         DashboardService.getStats(),
         SOSService.getActiveAlerts(),
-        caseService.listCases({ limit: 5 }),
-        operatorService.listUsers({ is_active: true, limit: 5 })
+        caseService.listCases({ page_size: 5 }),
+        operatorService.listUsers({ is_active: true, page_size: 5 })
       ])
       
       setMetrics(stats)
@@ -106,9 +106,6 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-6 w-6 text-emergency-600" />
               </div>
             </div>
-            <div className="mt-2">
-              <span className="text-xs text-emergency-600 font-medium">+2 from last hour</span>
-            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
@@ -120,9 +117,6 @@ export default function DashboardPage() {
               <div className="p-3 bg-yellow-100 rounded-full">
                 <FileText className="h-6 w-6 text-yellow-600" />
               </div>
-            </div>
-            <div className="mt-2">
-              <span className="text-xs text-yellow-600 font-medium">3 require immediate attention</span>
             </div>
           </div>
 
@@ -136,9 +130,6 @@ export default function DashboardPage() {
                 <Users className="h-6 w-6 text-green-600" />
               </div>
             </div>
-            <div className="mt-2">
-              <span className="text-xs text-green-600 font-medium">All units operational</span>
-            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
@@ -150,9 +141,6 @@ export default function DashboardPage() {
               <div className="p-3 bg-blue-100 rounded-full">
                 <Clock className="h-6 w-6 text-blue-600" />
               </div>
-            </div>
-            <div className="mt-2">
-              <span className="text-xs text-blue-600 font-medium">-0.8m from yesterday</span>
             </div>
           </div>
         </div>

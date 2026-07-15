@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
@@ -55,9 +55,9 @@ const sidebarSections: SidebarSection[] = [
       { title: 'Users & Roles', href: '/users', icon: Users, permission: 'operators.view' },
       { title: 'Mobile App Users', href: '/app-users', icon: Phone, permission: 'users.view' },
       { title: 'Support Centers', href: '/support', icon: Building, permission: 'support_centers.view' },
-      // { title: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'analytics.view' },
-      // { title: 'Audit Logs', href: '/audit', icon: FileSearch, permission: 'audit_logs.view' },
-      // { title: 'Settings', href: '/settings', icon: Settings, permission: 'system.settings_view' },
+      { title: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'analytics.view' },
+      { title: 'Audit Logs', href: '/audit', icon: FileSearch, permission: 'audit_logs.view' },
+      { title: 'Settings', href: '/settings', icon: Settings, permission: 'system.settings_view' },
     ],
   },
 ]
@@ -67,10 +67,9 @@ interface SidebarProps { className?: string }
 export function Sidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
-  const router = useRouter()
   const { stakeholder, hasPermission, logout } = useAuthStore()
 
-  const handleLogout = () => { logout(); router.push('/auth/login') }
+  const handleLogout = () => { logout() }
 
   const isVisible = (item: SidebarItem) => {
     if (!stakeholder) return true

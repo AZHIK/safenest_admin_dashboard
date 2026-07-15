@@ -39,7 +39,8 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'users.view', 'operators.view',
     'manage_support_centers', 'support_centers.view', 'support_centers.manage', 'training.view', 'training.manage',
     'analytics.view', 'audit_logs.view',
-    'system.settings_view', 'messages.view'
+    'system.settings_view',
+    'messages.view', 'messages.send', 'conversations.view'
   ],
   police: [
     'analytics.dashboard',
@@ -47,7 +48,8 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view', 'sos.assign', 'sos.escalate',
     // Reports: police can view reports and evidence
     'reports.view', 'evidence.view',
-    'analytics.view', 'audit_logs.view', 'messages.view', 'training.view', 'support_centers.view'
+    'analytics.view', 'audit_logs.view', 'messages.view', 'messages.send',
+    'conversations.view', 'training.view', 'support_centers.view'
   ],
   legal_officer: [
     'analytics.dashboard',
@@ -55,7 +57,8 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: legal handles full review lifecycle
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
-    'analytics.view', 'audit_logs.view', 'messages.view', 'training.view', 'support_centers.view'
+    'analytics.view', 'audit_logs.view', 'messages.view', 'messages.send',
+    'conversations.view', 'training.view', 'support_centers.view'
   ],
   counselor: [
     'analytics.dashboard',
@@ -63,7 +66,8 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: counselors review but not resolve
     'reports.view', 'reports.review', 'evidence.view',
-    'analytics.view', 'audit_logs.view', 'messages.view', 'training.view', 'support_centers.view'
+    'analytics.view', 'audit_logs.view', 'messages.view', 'messages.send',
+    'conversations.view', 'training.view', 'support_centers.view'
   ],
   help_center: [
     'analytics.dashboard',
@@ -71,7 +75,9 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: help center can view only
     'reports.view',
-    'analytics.view', 'messages.view', 'training.view', 'support_centers.view'
+    'analytics.view', 'messages.view', 'training.view', 'support_centers.view',
+    // Messaging: can view conversations and send replies
+    'conversations.view', 'messages.send'
   ],
   ngo_manager: [
     'analytics.dashboard',
@@ -79,7 +85,8 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     'sos.view',
     // Reports: NGO reviews and views evidence
     'reports.view', 'reports.review', 'evidence.view',
-    'analytics.view', 'audit_logs.view', 'messages.view', 'training.view', 'support_centers.view'
+    'analytics.view', 'audit_logs.view', 'messages.view', 'messages.send',
+    'conversations.view', 'training.view', 'support_centers.view'
   ],
   regional_manager: [
     'analytics.dashboard',
@@ -88,7 +95,8 @@ const ROLE_PERMISSIONS: Record<StakeholderRole, string[]> = {
     // Reports: regional manager handles full report lifecycle
     'reports.view', 'reports.review', 'reports.resolve', 'evidence.view',
     'analytics.view', 'audit_logs.view',
-    'support_centers.view', 'operators.view', 'messages.view', 'training.view'
+    'support_centers.view', 'operators.view',
+    'messages.view', 'messages.send', 'conversations.view', 'training.view'
   ]
 }
 
@@ -177,13 +185,28 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData: RegisterData) => {
         set({ isLoading: true })
         try {
-          await apiClient.post('/api/v1/operator/auth/register', {
+          const response = await apiClient.post<{
+            access_token?: string,
+            refresh_token?: string,
+            token_type?: string
+          }>('/api/v1/operator/auth/register', {
             full_name: userData.full_name,
             email: userData.email,
             password: userData.password,
             phone: userData.phone,
-            organization: userData.organization
+            organization: userData.organization,
+            role: userData.role
           })
+
+          // If the backend returns tokens on registration, auto-login
+          if (response.data?.access_token && response.data?.refresh_token) {
+            set({
+              token: response.data.access_token,
+              refreshToken: response.data.refresh_token,
+              isAuthenticated: true
+            })
+            await get().fetchProfile()
+          }
           
           set({ isLoading: false })
         } catch (error: any) {
@@ -193,18 +216,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Call logout endpoint before clearing state so the token is still available
+        apiClient.post('/api/v1/operator/auth/logout').catch(() => {})
         set({
           stakeholder: null,
           token: null,
           refreshToken: null,
           isAuthenticated: false
         })
-        // Optional: Call logout endpoint on backend
-        apiClient.post('/api/v1/operator/auth/logout').catch(() => {})
-        // Redirect to login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/auth/login'
-        }
       },
 
       refreshAccessToken: async () => {

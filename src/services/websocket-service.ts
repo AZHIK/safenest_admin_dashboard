@@ -1,160 +1,180 @@
-import { io, Socket } from 'socket.io-client'
-import { WebSocketEvent, WebSocketEventType } from '@/types'
+export type WsMessageHandler = (data: any) => void;
+
+export interface WsEventMap {
+  new_message: WsMessageHandler;
+  typing: WsMessageHandler;
+  message_status: WsMessageHandler;
+  subscribed: WsMessageHandler;
+  sos_update: WsMessageHandler;
+  location_update: WsMessageHandler;
+  error: WsMessageHandler;
+}
 
 export class WebSocketService {
-  private socket: Socket | null = null
-  private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
-  private reconnectDelay = 1000
+  private ws: WebSocket | null = null;
+  private token: string | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private handlers: Partial<Record<keyof WsEventMap, WsMessageHandler[]>> = {};
+  private subscribedConversations = new Set<string>();
 
-  connect(token: string): Promise<Socket> {
-    return new Promise((resolve, reject) => {
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
-      
-      this.socket = io(wsUrl, {
-        auth: {
-          token: token
-        },
-        transports: ['websocket'],
-        upgrade: false,
-        rememberUpgrade: false
-      })
-
-      this.socket.on('connect', () => {
-        console.log('WebSocket connected')
-        this.reconnectAttempts = 0
-        resolve(this.socket!)
-      })
-
-      this.socket.on('disconnect', (reason) => {
-        console.log('WebSocket disconnected:', reason)
-        if (reason === 'io server disconnect') {
-          // Server disconnected, reconnect manually
-          this.reconnect(token)
-        }
-      })
-
-      this.socket.on('connect_error', (error) => {
-        console.error('WebSocket connection error:', error)
-        this.reconnectAttempts++
-        
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          reject(error)
-        } else {
-          setTimeout(() => {
-            this.reconnect(token)
-          }, this.reconnectDelay * this.reconnectAttempts)
-        }
-      })
-
-      // Handle real-time events
-      this.setupEventHandlers()
-    })
+  connect(token: string): Promise<void> {
+    this.token = token;
+    this.reconnectAttempts = 0;
+    return this._connect();
   }
 
-  private reconnect(token: string) {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      setTimeout(() => {
-        this.connect(token)
-      }, this.reconnectDelay * this.reconnectAttempts)
+  private _connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const wsBaseUrl = apiUrl.replace(/^http/, 'ws');
+      const wsUrl = `${wsBaseUrl}/api/v1/messages/ws/chat?token=${this.token}`;
+
+      try {
+        this.ws = new WebSocket(wsUrl);
+      } catch (e) {
+        reject(e);
+        return;
+      }
+
+      this.ws.onopen = () => {
+        console.log('[WS] Connected');
+        this.reconnectAttempts = 0;
+        this._startHeartbeat();
+
+        // Re-subscribe to any previously subscribed conversations
+        for (const convId of Array.from(this.subscribedConversations)) {
+          this._send('subscribe_conversation', { conversation_id: convId });
+        }
+
+        resolve();
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this._dispatch(message.type, message);
+        } catch (e) {
+          console.error('[WS] Parse error:', e);
+        }
+      };
+
+      this.ws.onclose = (event) => {
+        console.log('[WS] Disconnected:', event.reason);
+        this._stopHeartbeat();
+        this.ws = null;
+
+        if (this.token && this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++;
+          const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+          console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+          setTimeout(() => this._connect(), delay);
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('[WS] Error:', error);
+      };
+    });
+  }
+
+  private _startHeartbeat() {
+    this._stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      this._send('ping', { timestamp: new Date().toISOString() });
+    }, 30000);
+  }
+
+  private _stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
-  private setupEventHandlers() {
-    if (!this.socket) return
+  private _send(type: string, data: any) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type, data }));
+    }
+  }
 
-    // SOS Events
-    this.socket.on('sos_triggered', (data: any) => {
-      console.log('New SOS alert:', data)
-      // Dispatch to store or callback
-    })
+  private _dispatch(type: string, message: any) {
+    const key = this._mapEventType(type);
+    if (key && this.handlers[key]) {
+      for (const handler of this.handlers[key]!) {
+        handler(message.data || message);
+      }
+    }
+  }
 
-    this.socket.on('sos_updated', (data: any) => {
-      console.log('SOS updated:', data)
-      // Update SOS in store
-    })
+  private _mapEventType(type: string): keyof WsEventMap | null {
+    const map: Record<string, keyof WsEventMap> = {
+      'new_message': 'new_message',
+      'typing': 'typing',
+      'message_status': 'message_status',
+      'subscribed': 'subscribed',
+      'sos_update': 'sos_update',
+      'location_update': 'location_update',
+      'error': 'error',
+    };
+    return map[type] || null;
+  }
 
-    this.socket.on('location_update', (data: any) => {
-      console.log('Location update:', data)
-      // Update location on map
-    })
+  on<K extends keyof WsEventMap>(event: K, handler: WsEventMap[K]) {
+    if (!this.handlers[event]) {
+      this.handlers[event] = [];
+    }
+    this.handlers[event]!.push(handler);
+  }
 
-    // Case Events
-    this.socket.on('case_assigned', (data: any) => {
-      console.log('Case assigned:', data)
-      // Update case assignments
-    })
+  off<K extends keyof WsEventMap>(event: K, handler?: WsEventMap[K]) {
+    if (!this.handlers[event]) return;
+    if (handler) {
+      this.handlers[event] = this.handlers[event]!.filter(h => h !== handler);
+    } else {
+      delete this.handlers[event];
+    }
+  }
 
-    this.socket.on('case_updated', (data: any) => {
-      console.log('Case updated:', data)
-      // Refresh case data
-    })
+  subscribeToConversation(conversationId: string) {
+    this.subscribedConversations.add(conversationId);
+    this._send('subscribe_conversation', { conversation_id: conversationId });
+  }
 
-    // Messaging Events
-    this.socket.on('message_received', (data: any) => {
-      console.log('New message:', data)
-      // Update messaging
-    })
+  unsubscribeFromConversation(conversationId: string) {
+    this.subscribedConversations.delete(conversationId);
+    this._send('unsubscribe_conversation', { conversation_id: conversationId });
+  }
 
-    // System Events
-    this.socket.on('stakeholder_online', (data: any) => {
-      console.log('Stakeholder online:', data)
-      // Update online status
-    })
+  sendTypingIndicator(conversationId: string, isTyping: boolean) {
+    this._send('typing', {
+      conversation_id: conversationId,
+      is_typing: isTyping,
+    });
+  }
 
-    this.socket.on('stakeholder_offline', (data: any) => {
-      console.log('Stakeholder offline:', data)
-      // Update online status
-    })
-
-    this.socket.on('emergency_broadcast', (data: any) => {
-      console.log('Emergency broadcast:', data)
-      // Show emergency notification
-    })
+  sendMessageStatus(conversationId: string, messageId: string, status: string) {
+    this._send('message_status', {
+      conversation_id: conversationId,
+      message_id: messageId,
+      status,
+    });
   }
 
   disconnect() {
-    if (this.socket) {
-      this.socket.disconnect()
-      this.socket = null
+    this._stopHeartbeat();
+    if (this.ws) {
+      this.ws.close(1000, 'Client disconnect');
+      this.ws = null;
     }
+    this.subscribedConversations.clear();
   }
 
-  // Emit events
-  emit(event: string, data: any) {
-    if (this.socket && this.socket.connected) {
-      this.socket.emit(event, data)
-    }
-  }
-
-  // Subscribe to specific events
-  on(event: string, callback: (data: any) => void) {
-    if (this.socket) {
-      this.socket.on(event, callback)
-    }
-  }
-
-  // Unsubscribe from events
-  off(event: string, callback?: (data: any) => void) {
-    if (this.socket) {
-      this.socket.off(event, callback)
-    }
-  }
-
-  // Join rooms for specific data
-  joinRoom(room: string) {
-    this.emit('join_room', { room })
-  }
-
-  leaveRoom(room: string) {
-    this.emit('leave_room', { room })
-  }
-
-  // Get connection status
   isConnected(): boolean {
-    return this.socket?.connected || false
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 }
 
-// Singleton instance
-export const wsService = new WebSocketService()
+export const wsService = new WebSocketService();

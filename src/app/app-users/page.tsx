@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,8 +44,10 @@ import {
 import { mobileUserService, MobileUser, MobileUserDetail, TrustedContact, ActivityItem } from '@/services/mobile-user-service'
 import { useAuthStore } from '@/store/auth-store'
 import { formatDateTime, getRelativeTime } from '@/lib/utils'
-import { SOSMapPanel } from '@/components/sos/SOSMapPanel'
+import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
+
+const SOSMapPanel = dynamic(() => import('@/components/sos/SOSMapPanel').then(m => m.SOSMapPanel), { ssr: false })
 
 export default function MobileUsersPage() {
   const [users, setUsers] = useState<MobileUser[]>([])
@@ -186,6 +189,7 @@ export default function MobileUsersPage() {
   const verifiedCount = users.filter(u => u.is_verified).length
 
   return (
+    <PermissionGuard permission="users.view">
     <DashboardLayout>
       <div className="space-y-6">
         
@@ -664,5 +668,6 @@ export default function MobileUsersPage() {
 
       </div>
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

@@ -33,12 +33,13 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          const { useAuthStore } = require('@/store/auth-store')
-          // Handle unauthorized - redirect to login
-          useAuthStore.getState().logout()
-          if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login'
+          const url = error.config?.url || ''
+          // Don't redirect for auth endpoints - let the calling code handle errors
+          if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/logout')) {
+            return Promise.reject(error)
           }
+          const { useAuthStore } = require('@/store/auth-store')
+          useAuthStore.getState().logout()
         }
         return Promise.reject(error)
       }

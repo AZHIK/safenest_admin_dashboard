@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
-import { SupportCenterService } from '@/services/support-service'
+import { SupportCenterService, SupportCenterType } from '@/services/support-service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,15 +18,27 @@ export default function SetupPage() {
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    center_type: SupportCenterType
+    address: string
+    city: string
+    state: string
+    country: string
+    phone_primary: string
+    email: string
+    latitude: number
+    longitude: number
+    is_24_7: boolean
+  }>({
     name: '',
     center_type: 'police',
     address: '',
     city: '',
-    state: 'Dar es Salaam',
-    country: 'Tanzania',
-    phone_primary: stakeholder?.phone || '',
-    email: stakeholder?.email || '',
+    state: '',
+    country: 'TZ',
+    phone_primary: '',
+    email: '',
     latitude: -6.7924,
     longitude: 39.2083,
     is_24_7: true,
@@ -74,7 +86,7 @@ export default function SetupPage() {
               <Label htmlFor="type">Center Type</Label>
               <Select 
                 value={formData.center_type} 
-                onValueChange={(value) => setFormData({...formData, center_type: value})}
+                onValueChange={(value) => setFormData({...formData, center_type: value as SupportCenterType})}
               >
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select type" />

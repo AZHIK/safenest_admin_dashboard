@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import {
   TrainingService,
   TrainingCategory,
@@ -99,6 +100,7 @@ export default function TrainingManagementPage() {
   }
 
   return (
+    <PermissionGuard permission="training.view">
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
@@ -308,5 +310,6 @@ export default function TrainingManagementPage() {
         onSave={selectedLesson ? handleUpdateLesson : handleCreateLesson}
       />
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

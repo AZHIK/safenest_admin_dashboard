@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -270,6 +271,7 @@ export default function UsersPage() {
   }
 
   return (
+    <PermissionGuard permission="operators.view">
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
@@ -523,44 +525,18 @@ export default function UsersPage() {
                         <div className="flex items-center justify-between mb-4">
                           <Badge className="bg-blue-100 text-blue-700">{role.name}</Badge>
                           <span className="text-2xl font-bold text-gray-900">
-                            {role.user_count || Math.floor(Math.random() * 30) + 5}
+                            {role.user_count || 0}
                           </span>
                         </div>
                         <p className="text-sm text-gray-500">Active users in this role</p>
-                        <div className="mt-4 flex -space-x-2">
-                          {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="w-8 h-8 bg-gray-200 rounded-full border-2 border-white" />
-                          ))}
-                          <div className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center text-xs text-gray-500">
-                            +5
-                          </div>
-                        </div>
                       </CardContent>
                     </Card>
                   ))
                 ) : (
-                  // Fallback with roleLabels if no roles from backend
-                  Object.entries(roleLabels).filter(([key]) => key !== 'system_admin' && key !== 'super_admin').map(([key, label]) => (
-                    <Card key={key}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <Badge className={roleColors[key]}>{label}</Badge>
-                          <span className="text-2xl font-bold text-gray-900">
-                            {Math.floor(Math.random() * 30) + 5}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500">Active users in this role</p>
-                        <div className="mt-4 flex -space-x-2">
-                          {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="w-8 h-8 bg-gray-200 rounded-full border-2 border-white" />
-                          ))}
-                          <div className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center text-xs text-gray-500">
-                            +5
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                  <div className="col-span-full text-center py-12 text-gray-400">
+                    <Users className="h-10 w-10 mx-auto mb-3 text-gray-200" />
+                    <p className="font-medium text-gray-500">No role data available</p>
+                  </div>
                 )
               )}
             </div>
@@ -729,5 +705,6 @@ export default function UsersPage() {
         </Dialog>
       </div>
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

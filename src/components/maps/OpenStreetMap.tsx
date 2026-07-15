@@ -30,7 +30,7 @@ function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number) => 
   return null
 }
 
-interface MapMarker {
+export interface MapMarker {
   id: string
   lat: number
   lng: number
@@ -38,7 +38,7 @@ interface MapMarker {
   color?: string
 }
 
-interface MapPolyline {
+export interface MapPolyline {
   id: string
   positions: [number, number][]
   color?: string

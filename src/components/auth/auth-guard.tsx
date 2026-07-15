@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/store/auth-store'
 import { Loader2 } from 'lucide-react'
@@ -9,9 +9,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const { isAuthenticated, isLoading, stakeholder } = useAuthStore()
+  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    if (!isLoading) {
+    // By the time this effect runs, the persist middleware has already
+    // rehydrated the store from localStorage (microtasks process before effects).
+    setHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (hydrated && !isLoading) {
       if (!isAuthenticated) {
         router.push('/auth/login')
       } else if (
@@ -23,9 +30,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         router.push('/setup')
       }
     }
-  }, [isAuthenticated, isLoading, stakeholder, router, pathname])
+  }, [hydrated, isAuthenticated, isLoading, stakeholder, router, pathname])
 
-  if (isLoading) {
+  if (!hydrated || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center space-y-4">

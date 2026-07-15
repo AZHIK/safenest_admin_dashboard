@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { ReportDetailsCard } from '@/components/reports/ReportDetailsCard'
 import { ReportStatusBadge } from '@/components/reports/ReportStatusBadge'
 import { ReportTimeline } from '@/components/reports/ReportTimeline'
@@ -16,33 +17,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-
-const MOCK_REPORT: IncidentReport = {
-  id: 'rpt-001', report_number: 'RPT-2024-001', report_type: 'assault',
-  status: 'under_review', is_anonymous: false,
-  incident_date: new Date(Date.now() - 86400000).toISOString(),
-  incident_latitude: 40.7128, incident_longitude: -74.006,
-  incident_address: '123 Main St, New York, NY',
-  encryption_metadata: null,
-  created_at: new Date(Date.now() - 86400000).toISOString(),
-  updated_at: new Date(Date.now() - 3600000).toISOString(),
-  client_created_at: null, offline_id: null,
-  user: { id: 'u1', phone_number: '+1 (212) 555-0101', country_code: 'US',
-    is_anonymous: false, is_verified: true, language_preference: 'en',
-    status: 'active', last_login_at: null, created_at: new Date().toISOString() },
-  evidence_files: [
-    { id: 'ev1', report_id: 'rpt-001', file_type: 'image', mime_type: 'image/jpeg',
-      file_size_bytes: 2048000, storage_path: 'images/2026/05/20/mock_ev1', encryption_metadata: null,
-      file_hash_sha256: 'abc123', has_gps_metadata: true, processing_status: 'completed',
-      virus_scan_status: 'clean', uploaded_at: new Date(Date.now() - 80000000).toISOString(),
-      thumbnail_path: null, offline_id: null },
-    { id: 'ev2', report_id: 'rpt-001', file_type: 'audio', mime_type: 'audio/mpeg',
-      file_size_bytes: 512000, storage_path: 'audio/2026/05/20/mock_ev2', encryption_metadata: null,
-      file_hash_sha256: 'def456', has_gps_metadata: false, processing_status: 'completed',
-      virus_scan_status: 'clean', uploaded_at: new Date(Date.now() - 79000000).toISOString(),
-      thumbnail_path: null, offline_id: null },
-  ],
-}
 
 export default function ReportDetailPage() {
   const params = useParams()
@@ -62,7 +36,7 @@ export default function ReportDetailPage() {
   useEffect(() => {
     const load = async () => {
       try { setReport(await reportService.getReport(reportId)) }
-      catch { setReport({ ...MOCK_REPORT, id: reportId, evidence_files: [] }) }
+      catch { console.error('Failed to fetch report') }
       finally { setLoading(false) }
     }
     load()
@@ -83,26 +57,20 @@ export default function ReportDetailPage() {
     setSavingNote(false)
   }
 
-  if (loading) return (
-    <DashboardLayout>
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-      </div>
-    </DashboardLayout>
-  )
-
-  if (!report) return (
-    <DashboardLayout>
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <FileText className="h-10 w-10 text-gray-300" />
-        <p className="text-gray-600">Report not found</p>
-        <Link href="/reports" className="text-sm text-indigo-600 hover:underline">← Back to Reports</Link>
-      </div>
-    </DashboardLayout>
-  )
-
   return (
+    <PermissionGuard permission="reports.view">
     <DashboardLayout>
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
+        </div>
+      ) : !report ? (
+        <div className="flex flex-col items-center justify-center h-64 gap-3">
+          <FileText className="h-10 w-10 text-gray-300" />
+          <p className="text-gray-600">Report not found</p>
+          <Link href="/reports" className="text-sm text-indigo-600 hover:underline">← Back to Reports</Link>
+        </div>
+      ) : (
       <div className="space-y-5 max-w-5xl">
 
         {/* Breadcrumb */}
@@ -238,10 +206,6 @@ export default function ReportDetailPage() {
                     <label className="text-xs text-gray-500 font-medium block mb-1">Select Officer</label>
                     <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                       <option value="">— Unassigned —</option>
-                      <option value="of1">Officer Jane Smith</option>
-                      <option value="of2">Officer Mark Johnson</option>
-                      <option value="of3">Counselor Aisha Patel</option>
-                      <option value="of4">Legal Officer David Kim</option>
                     </select>
                   </div>
                   <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
@@ -254,6 +218,8 @@ export default function ReportDetailPage() {
           </div>
         </div>
       </div>
+      )}
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

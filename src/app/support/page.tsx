@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { SupportCenterService, SupportCenter } from '@/services/support-service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,6 +82,7 @@ export default function SupportCentersPage() {
   }
 
   return (
+    <PermissionGuard permission="support_centers.view">
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
@@ -248,5 +250,6 @@ export default function SupportCentersPage() {
         onSave={handleSave}
       />
     </DashboardLayout>
+    </PermissionGuard>
   )
 }

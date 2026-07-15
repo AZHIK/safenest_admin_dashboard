@@ -10,19 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, Eye, EyeOff, Loader2, Shield, Check } from 'lucide-react'
 import { StakeholderRole } from '@/types'
-
-const ROLES: { value: StakeholderRole; label: string; description: string }[] = [
-  { value: 'police', label: 'Police Officer', description: 'Law enforcement and case investigation' },
-  { value: 'legal_officer', label: 'Legal Aid', description: 'Legal support and court assistance' },
-  { value: 'counselor', label: 'Counselor', description: 'Mental health and counseling services' },
-  { value: 'help_center', label: 'Help Center Staff', description: 'Shelter and immediate assistance' },
-  { value: 'ngo_manager', label: 'NGO Manager', description: 'Non-profit organization coordinator' },
-  { value: 'regional_manager', label: 'Regional Manager', description: 'Multi-region coordination and oversight' },
-]
+import { SEED_ROLES } from '@/data/roles'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { register, isLoading } = useAuthStore()
+  const authStore = useAuthStore()
+  const { register, isLoading, isAuthenticated } = authStore
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -60,8 +53,15 @@ export default function RegisterPage() {
         role: selectedRole
       })
       setSuccess(true)
+      // If the backend returned tokens, user is authenticated — go to dashboard
+      // Otherwise, redirect to login with a success message
+      const isAuth = useAuthStore.getState().isAuthenticated
       setTimeout(() => {
-        router.push('/dashboard')
+        if (isAuth) {
+          router.push('/dashboard')
+        } else {
+          router.push('/auth/login?registered=true')
+        }
       }, 2000)
     } catch (err: any) {
       setError(err.message || 'Registration failed')
@@ -77,7 +77,9 @@ export default function RegisterPage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
           <p className="text-gray-600 mb-4">
-            Your account has been created and is pending verification. Redirecting to dashboard...
+            {isAuthenticated
+              ? 'Your account has been created. Redirecting to dashboard...'
+              : 'Your account has been created and is pending verification. Redirecting to login...'}
           </p>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div className="bg-emergency-600 h-2 rounded-full animate-pulse" style={{ width: '100%' }} />
@@ -113,7 +115,7 @@ export default function RegisterPage() {
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Select Your Role</label>
             <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-              {ROLES.map((role) => (
+              {SEED_ROLES.map((role) => (
                 <button
                   key={role.value}
                   type="button"

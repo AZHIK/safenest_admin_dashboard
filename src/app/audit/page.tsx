@@ -1,23 +1,26 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileSearch, Download, Search, Shield, AlertTriangle, User, FileText, Settings, LogIn, Eye, Database, MoreHorizontal } from 'lucide-react'
+import { apiClient } from '@/services/api-client'
+import { FileSearch, Download, Search, Shield, AlertTriangle, User, FileText, Settings, LogIn, Eye, Database, MoreHorizontal, Loader2 } from 'lucide-react'
 
-const mockAuditLogs = [
-  { id: 1, action: 'CASE_VIEW', user: 'Officer Smith', target: 'CASE-2024-001', timestamp: '2024-01-15 10:30:22', severity: 'info', ip: '192.168.1.45' },
-  { id: 2, action: 'USER_LOGIN', user: 'Dr. Johnson', target: 'System', timestamp: '2024-01-15 10:28:15', severity: 'info', ip: '192.168.1.32' },
-  { id: 3, action: 'SOS_ALERT_CREATED', user: 'Mobile App', target: 'SOS-789', timestamp: '2024-01-15 10:25:00', severity: 'warning', ip: '10.0.0.15' },
-  { id: 4, action: 'CASE_UPDATED', user: 'Case Worker Lee', target: 'CASE-2024-002', timestamp: '2024-01-15 10:20:45', severity: 'info', ip: '192.168.1.28' },
-  { id: 5, action: 'USER_PERMISSION_CHANGED', user: 'Admin', target: 'User: Sarah Chen', timestamp: '2024-01-15 10:15:30', severity: 'warning', ip: '192.168.1.10' },
-  { id: 6, action: 'DATA_EXPORT', user: 'Manager Wilson', target: 'Cases Report', timestamp: '2024-01-15 10:10:00', severity: 'info', ip: '192.168.1.50' },
-  { id: 7, action: 'FAILED_LOGIN', user: 'Unknown', target: 'System', timestamp: '2024-01-15 10:05:12', severity: 'critical', ip: '203.0.113.45' },
-  { id: 8, action: 'SETTINGS_CHANGED', user: 'Admin', target: 'Notification Settings', timestamp: '2024-01-15 09:55:00', severity: 'warning', ip: '192.168.1.10' },
-]
+interface AuditLog {
+  id: string
+  action: string
+  stakeholder_name?: string
+  resource_type?: string
+  resource_id?: string
+  details?: any
+  ip_address?: string
+  created_at: string
+}
 
 const actionIcons: Record<string, any> = {
   CASE_VIEW: Eye,
@@ -37,7 +40,27 @@ const severityColors: Record<string, string> = {
 }
 
 export default function AuditPage() {
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const response = await apiClient.get<AuditLog[]>('/api/v1/operator/audit/logs')
+        setLogs(response.data || [])
+      } catch {
+        console.error('Failed to fetch audit logs')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchLogs()
+  }, [])
+
+  const severityCount = (sev: string) => logs.filter(l => l.details?.severity === sev).length
+
   return (
+    <PermissionGuard permission="audit_logs.view">
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
@@ -52,11 +75,11 @@ export default function AuditPage() {
             </div>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled>
               <Database className="h-4 w-4 mr-2" />
               Archive
             </Button>
-            <Button className="bg-emergency-600 hover:bg-emergency-700" size="sm">
+            <Button className="bg-emergency-600 hover:bg-emergency-700" size="sm" disabled>
               <Download className="h-4 w-4 mr-2" />
               Export Logs
             </Button>
@@ -67,25 +90,25 @@ export default function AuditPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-gray-900">12,456</div>
-              <p className="text-sm text-gray-500">Total Events (24h)</p>
+              <div className="text-2xl font-bold text-gray-900">{loading ? '—' : logs.length}</div>
+              <p className="text-sm text-gray-500">Total Events</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-blue-600">8,234</div>
+              <div className="text-2xl font-bold text-blue-600">{loading ? '—' : severityCount('info')}</div>
               <p className="text-sm text-gray-500">Info Events</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-amber-600">3,567</div>
+              <div className="text-2xl font-bold text-amber-600">{loading ? '—' : severityCount('warning')}</div>
               <p className="text-sm text-gray-500">Warnings</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-red-600">12</div>
+              <div className="text-2xl font-bold text-red-600">{loading ? '—' : severityCount('critical')}</div>
               <p className="text-sm text-gray-500">Critical Events</p>
             </CardContent>
           </Card>
@@ -108,7 +131,7 @@ export default function AuditPage() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input placeholder="Search audit logs..." className="pl-10" />
                   </div>
-                  <Button variant="outline" size="sm">Filter</Button>
+                  <Button variant="outline" size="sm" disabled>Filter</Button>
                 </div>
               </CardContent>
             </Card>
@@ -119,48 +142,54 @@ export default function AuditPage() {
                 <CardTitle>Audit Trail</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Event</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">User</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Target</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Timestamp</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Severity</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">IP Address</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mockAuditLogs.map((log) => {
-                        const ActionIcon = actionIcons[log.action] || FileText
-                        return (
-                          <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center space-x-2">
-                                <ActionIcon className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-900">{log.action}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-700">{log.user}</td>
-                            <td className="py-3 px-4 text-sm text-gray-700">{log.target}</td>
-                            <td className="py-3 px-4 text-sm text-gray-500">{log.timestamp}</td>
-                            <td className="py-3 px-4">
-                              <Badge className={severityColors[log.severity]}>{log.severity}</Badge>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-500 font-mono">{log.ip}</td>
-                            <td className="py-3 px-4">
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                ) : logs.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <FileSearch className="h-10 w-10 mx-auto mb-3 text-gray-200" />
+                    <p className="font-medium text-gray-500">No audit logs found</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Event</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">User</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Target</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Timestamp</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Severity</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">IP Address</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {logs.map((log) => {
+                          const ActionIcon = actionIcons[log.action] || FileText
+                          const sev = log.details?.severity || 'info'
+                          return (
+                            <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center space-x-2">
+                                  <ActionIcon className="h-4 w-4 text-gray-400" />
+                                  <span className="text-sm font-medium text-gray-900">{log.action}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-700">{log.stakeholder_name || 'System'}</td>
+                              <td className="py-3 px-4 text-sm text-gray-700">{log.resource_id || log.resource_type || '—'}</td>
+                              <td className="py-3 px-4 text-sm text-gray-500">{new Date(log.created_at).toLocaleString()}</td>
+                              <td className="py-3 px-4">
+                                <Badge className={severityColors[sev] || 'bg-gray-100 text-gray-700'}>{sev}</Badge>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-500 font-mono">{log.ip_address || '—'}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -174,28 +203,24 @@ export default function AuditPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                      <div>
-                        <p className="font-medium text-red-900">Failed Login Attempt</p>
-                        <p className="text-sm text-red-700">Multiple failed login attempts detected from IP 203.0.113.45</p>
-                        <p className="text-xs text-red-600 mt-1">2024-01-15 10:05:12</p>
+                {logs.filter(l => l.details?.severity === 'critical').length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No security events recorded</p>
+                ) : (
+                  <div className="space-y-4">
+                    {logs.filter(l => l.details?.severity === 'critical').map(log => (
+                      <div key={log.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <AlertTriangle className="h-5 w-5 text-red-600" />
+                          <div>
+                            <p className="font-medium text-red-900">{log.action}</p>
+                            <p className="text-sm text-red-700">{log.stakeholder_name} — {log.resource_id}</p>
+                            <p className="text-xs text-red-600 mt-1">{new Date(log.created_at).toLocaleString()}</p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <User className="h-5 w-5 text-amber-600" />
-                      <div>
-                        <p className="font-medium text-amber-900">Permission Change</p>
-                        <p className="text-sm text-amber-700">User permissions modified for Sarah Chen by Admin</p>
-                        <p className="text-xs text-amber-600 mt-1">2024-01-15 10:15:30</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -206,7 +231,7 @@ export default function AuditPage() {
                 <CardTitle>Data Access Logs</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Data access tracking logs coming soon...</p>
+                <p className="text-gray-500">Data access tracking not yet available</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -217,12 +242,13 @@ export default function AuditPage() {
                 <CardTitle>System Events</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">System event logs coming soon...</p>
+                <p className="text-gray-500">System event logs not yet available</p>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
+    </PermissionGuard>
   )
 }
