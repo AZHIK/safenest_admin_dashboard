@@ -1,21 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { EvidenceFile } from '@/types'
 import { Image, Music, Video, FileText, Eye, Download, ShieldCheck, X, Loader2 } from 'lucide-react'
 import { formatFileSize } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { fetchAndDecryptFile, getKEK, EncryptionMetadata } from '@/lib/decryption'
+import { fetchAndDecryptFile, getKEK, normalizeEncryptionMetadata } from '@/lib/decryption'
+import { useAuthStore } from '@/store/auth-store'
 
 interface ReportEvidenceViewerProps {
   files?: EvidenceFile[]
   canView?: boolean
 }
 
-// Helper function to construct file URL
-const getFileUrl = (storagePath: string): string => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-  return `${apiUrl}/api/v1/evidence/download/${storagePath}`
+const getApiBaseUrl = (): string => {
+  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '')
+}
+
+// Helper function to construct the backend evidence download URL.
+const getFileUrl = (file: EvidenceFile): string => {
+  if (/^https?:\/\//i.test(file.storage_path)) {
+    return file.storage_path
+  }
+
+  const normalizedPath = file.storage_path.replace(/^\/+/, '')
+  const url = new URL(`/api/v1/evidence/download/${normalizedPath}`, `${getApiBaseUrl()}/`)
+  url.searchParams.set('evidence_id', file.id)
+  return url.toString()
 }
 
 const FILE_TYPE_CONFIG: Record<string, {
@@ -30,7 +41,17 @@ const FILE_TYPE_CONFIG: Record<string, {
   document: { icon: FileText, bgClass: 'bg-amber-50',  iconColor: 'text-amber-500',  label: 'Document' },
 }
 
-function EvidenceItem({ file, canView, onView }: { file: EvidenceFile; canView: boolean; onView: (file: EvidenceFile) => void }) {
+function EvidenceItem({
+  file,
+  canView,
+  onView,
+  onDownload,
+}: {
+  file: EvidenceFile
+  canView: boolean
+  onView: (file: EvidenceFile) => void
+  onDownload: (file: EvidenceFile) => void
+}) {
   const config = FILE_TYPE_CONFIG[file.file_type] ?? FILE_TYPE_CONFIG['document']
   const Icon = config.icon
 
@@ -39,8 +60,7 @@ function EvidenceItem({ file, canView, onView }: { file: EvidenceFile; canView: 
   }
 
   const handleDownload = () => {
-    const url = getFileUrl(file.storage_path)
-    window.open(url, '_blank')
+    onDownload(file)
   }
 
   return (
@@ -127,41 +147,119 @@ function EvidenceItem({ file, canView, onView }: { file: EvidenceFile; canView: 
 }
 
 export function ReportEvidenceViewer({ files = [], canView = true }: ReportEvidenceViewerProps) {
+  const token = useAuthStore((state) => state.token)
   const [viewingFile, setViewingFile] = useState<EvidenceFile | null>(null)
   const [decryptedBlob, setDecryptedBlob] = useState<Blob | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isDecrypting, setIsDecrypting] = useState(false)
   const [decryptionError, setDecryptionError] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!decryptedBlob) {
+      setPreviewUrl(null)
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(decryptedBlob)
+    setPreviewUrl(objectUrl)
+
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }, [decryptedBlob])
+
+  const getAuthorizedRequestInit = (): RequestInit => ({
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  const getDownloadFilename = (file: EvidenceFile): string => {
+    const extension = file.mime_type.split('/')[1] ?? 'bin'
+    return `${file.file_type}_${file.id.slice(0, 6)}.${extension}`
+  }
+
+  const fetchEvidenceBlob = async (file: EvidenceFile): Promise<Blob> => {
+    const response = await fetch(getFileUrl(file), getAuthorizedRequestInit())
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch evidence: ${response.status}`)
+    }
+
+    return response.blob()
+  }
+
+  const triggerBlobDownload = (file: EvidenceFile, blob: Blob) => {
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = getDownloadFilename(file)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  }
+
+  const prepareEvidenceBlob = async (file: EvidenceFile): Promise<Blob> => {
+    if (!file.encryption_metadata || Object.keys(file.encryption_metadata).length === 0) {
+      return fetchEvidenceBlob(file)
+    }
+
+    const fileUrl = getFileUrl(file)
+    const kek = getKEK()
+    const metadata = normalizeEncryptionMetadata(file.encryption_metadata)
+    return fetchAndDecryptFile(
+      fileUrl,
+      metadata,
+      kek,
+      getAuthorizedRequestInit()
+    )
+  }
 
   const handleViewFile = async (file: EvidenceFile) => {
     setViewingFile(file)
     setDecryptionError(null)
-    
-    // Check if file has encryption metadata
-    if (!file.encryption_metadata || Object.keys(file.encryption_metadata).length === 0) {
-      // No encryption, use direct URL
-      setDecryptedBlob(null)
-      return
-    }
-
-    // Decrypt the file
+    setDecryptedBlob(null)
     setIsDecrypting(true)
+
     try {
-      const fileUrl = getFileUrl(file.storage_path)
-      const kek = getKEK()
-      const decrypted = await fetchAndDecryptFile(fileUrl, file.encryption_metadata as EncryptionMetadata, kek)
-      setDecryptedBlob(decrypted)
+      const blob = await prepareEvidenceBlob(file)
+      setDecryptedBlob(blob)
     } catch (error) {
-      console.error('Decryption failed:', error)
-      setDecryptionError('Failed to decrypt file. It may be using a different encryption scheme.')
+      console.error('Evidence preview failed:', error)
+      const message = error instanceof Error
+        ? error.message
+        : 'Failed to load evidence file.'
+      setDecryptionError(message)
     } finally {
       setIsDecrypting(false)
+    }
+  }
+
+  const handleDownloadFile = async (file: EvidenceFile) => {
+    setDownloadError(null)
+    setIsDownloading(true)
+
+    try {
+      const blob = await prepareEvidenceBlob(file)
+      triggerBlobDownload(file, blob)
+    } catch (error) {
+      console.error('Evidence download failed:', error)
+      const message = error instanceof Error
+        ? error.message
+        : 'Failed to download evidence file.'
+      setDownloadError(message)
+    } finally {
+      setIsDownloading(false)
     }
   }
 
   const handleCloseModal = () => {
     setViewingFile(null)
     setDecryptedBlob(null)
+    setPreviewUrl(null)
     setDecryptionError(null)
+    setDownloadError(null)
   }
 
   if (files.length === 0) {
@@ -202,7 +300,13 @@ export function ReportEvidenceViewer({ files = [], canView = true }: ReportEvide
       {/* File Grid */}
       <div className="grid grid-cols-2 gap-3">
         {files.map(file => (
-          <EvidenceItem key={file.id} file={file} canView={canView} onView={handleViewFile} />
+          <EvidenceItem
+            key={file.id}
+            file={file}
+            canView={canView}
+            onView={handleViewFile}
+            onDownload={handleDownloadFile}
+          />
         ))}
       </div>
 
@@ -225,41 +329,43 @@ export function ReportEvidenceViewer({ files = [], canView = true }: ReportEvide
 
             {/* Content */}
             <div className="p-4 flex items-center justify-center bg-slate-50 min-h-[400px]">
-              {isDecrypting ? (
+              {isDecrypting || isDownloading ? (
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 text-indigo-600 animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-slate-600">Decrypting file...</p>
+                  <p className="text-sm text-slate-600">
+                    {isDownloading ? 'Preparing download...' : 'Decrypting file...'}
+                  </p>
                 </div>
-              ) : decryptionError ? (
+              ) : decryptionError || downloadError ? (
                 <div className="text-center">
                   <ShieldCheck className="h-16 w-16 text-amber-500 mx-auto mb-3" />
-                  <p className="text-sm text-slate-600 mb-3">{decryptionError}</p>
+                  <p className="text-sm text-slate-600 mb-3">{decryptionError || downloadError}</p>
                   <button
-                    onClick={() => window.open(getFileUrl(viewingFile.storage_path), '_blank')}
+                    onClick={() => handleViewFile(viewingFile)}
                     className="text-sm text-indigo-600 hover:text-indigo-700"
                   >
-                    Try viewing encrypted file directly
+                    Retry preview
                   </button>
                 </div>
               ) : (
                 <>
                   {viewingFile.file_type === 'image' && (
                     <img
-                      src={decryptedBlob ? URL.createObjectURL(decryptedBlob) : getFileUrl(viewingFile.storage_path)}
+                      src={previewUrl ?? undefined}
                       alt="Evidence"
                       className="max-w-full max-h-[70vh] object-contain rounded-lg"
                     />
                   )}
                   {viewingFile.file_type === 'audio' && (
                     <audio
-                      src={decryptedBlob ? URL.createObjectURL(decryptedBlob) : getFileUrl(viewingFile.storage_path)}
+                      src={previewUrl ?? undefined}
                       controls
                       className="w-full max-w-md"
                     />
                   )}
                   {viewingFile.file_type === 'video' && (
                     <video
-                      src={decryptedBlob ? URL.createObjectURL(decryptedBlob) : getFileUrl(viewingFile.storage_path)}
+                      src={previewUrl ?? undefined}
                       controls
                       className="max-w-full max-h-[70vh] rounded-lg"
                     />
@@ -269,7 +375,7 @@ export function ReportEvidenceViewer({ files = [], canView = true }: ReportEvide
                       <FileText className="h-16 w-16 text-slate-400 mx-auto mb-3" />
                       <p className="text-sm text-slate-600">Document preview not available</p>
                       <button
-                        onClick={() => window.open(decryptedBlob ? URL.createObjectURL(decryptedBlob) : getFileUrl(viewingFile.storage_path), '_blank')}
+                        onClick={() => handleDownloadFile(viewingFile)}
                         className="mt-3 text-sm text-indigo-600 hover:text-indigo-700"
                       >
                         Download to view

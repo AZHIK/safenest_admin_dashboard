@@ -32,12 +32,12 @@ const MOCK_REPORT: IncidentReport = {
     status: 'active', last_login_at: null, created_at: new Date().toISOString() },
   evidence_files: [
     { id: 'ev1', report_id: 'rpt-001', file_type: 'image', mime_type: 'image/jpeg',
-      file_size_bytes: 2048000, storage_path: '/secure/ev1.jpg', encryption_metadata: null,
+      file_size_bytes: 2048000, storage_path: 'images/2026/05/20/mock_ev1', encryption_metadata: null,
       file_hash_sha256: 'abc123', has_gps_metadata: true, processing_status: 'completed',
       virus_scan_status: 'clean', uploaded_at: new Date(Date.now() - 80000000).toISOString(),
       thumbnail_path: null, offline_id: null },
     { id: 'ev2', report_id: 'rpt-001', file_type: 'audio', mime_type: 'audio/mpeg',
-      file_size_bytes: 512000, storage_path: '/secure/ev2.mp3', encryption_metadata: null,
+      file_size_bytes: 512000, storage_path: 'audio/2026/05/20/mock_ev2', encryption_metadata: null,
       file_hash_sha256: 'def456', has_gps_metadata: false, processing_status: 'completed',
       virus_scan_status: 'clean', uploaded_at: new Date(Date.now() - 79000000).toISOString(),
       thumbnail_path: null, offline_id: null },
@@ -62,7 +62,7 @@ export default function ReportDetailPage() {
   useEffect(() => {
     const load = async () => {
       try { setReport(await reportService.getReport(reportId)) }
-      catch { setReport({ ...MOCK_REPORT, id: reportId }) }
+      catch { setReport({ ...MOCK_REPORT, id: reportId, evidence_files: [] }) }
       finally { setLoading(false) }
     }
     load()

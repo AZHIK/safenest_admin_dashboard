@@ -3,7 +3,7 @@ import { Calendar, MapPin, Phone, User, Hash, Shield, FileText } from 'lucide-re
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { useState, useEffect } from 'react'
-import { decryptData, EncryptionMetadata } from '@/lib/decryption'
+import { decryptData, normalizeEncryptionMetadata } from '@/lib/decryption'
 import { Loader2 } from 'lucide-react'
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
@@ -66,12 +66,13 @@ export function ReportDetailsCard({ report }: ReportDetailsCardProps) {
 
       try {
         const binaryData = Uint8Array.from(atob(report.description_encrypted), c => c.charCodeAt(0))
-        const decryptedBuffer = await decryptData(binaryData, report.encryption_metadata as EncryptionMetadata)
+        const metadata = normalizeEncryptionMetadata(report.encryption_metadata)
+        const decryptedBuffer = await decryptData(binaryData, metadata)
         const text = new TextDecoder().decode(decryptedBuffer)
         setDecryptedDescription(text)
       } catch (err) {
         console.error('Failed to decrypt description:', err)
-        setDecryptError('Unable to decrypt the incident narrative. The security key may be missing or invalid.')
+        setDecryptError(err instanceof Error ? err.message : 'Unable to decrypt the incident narrative.')
       } finally {
         setIsDecrypting(false)
       }
