@@ -108,6 +108,18 @@ export default function MessagesPage() {
       loadConversations()
     }
 
+    const handleNewConversation = (data: any) => {
+      const conversation = data.conversation
+      if (!conversation) return
+      
+      setConversations((prev) => {
+        // Check if already exists
+        if (prev.some((c) => c.id === conversation.id)) return prev
+        // Add new conversation at the top
+        return [conversation, ...prev]
+      })
+    }
+
     const handleTyping = (data: any) => {
       const conv = selectedConvRef.current
       if (conv && data.conversation_id === conv.id) {
@@ -130,11 +142,13 @@ export default function MessagesPage() {
     }
 
     wsService.on('new_message', handleNewMessage)
+    wsService.on('new_conversation', handleNewConversation)
     wsService.on('typing', handleTyping)
     wsService.on('message_status', handleMessageStatus)
 
     return () => {
       wsService.off('new_message', handleNewMessage)
+      wsService.off('new_conversation', handleNewConversation)
       wsService.off('typing', handleTyping)
       wsService.off('message_status', handleMessageStatus)
     }

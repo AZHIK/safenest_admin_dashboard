@@ -8,6 +8,7 @@ export interface WsEventMap {
   sos_update: WsMessageHandler;
   location_update: WsMessageHandler;
   error: WsMessageHandler;
+  new_conversation: WsMessageHandler;
 }
 
 export class WebSocketService {
@@ -123,6 +124,7 @@ export class WebSocketService {
       'sos_update': 'sos_update',
       'location_update': 'location_update',
       'error': 'error',
+      'new_conversation': 'new_conversation',
     };
     return map[type] || null;
   }
