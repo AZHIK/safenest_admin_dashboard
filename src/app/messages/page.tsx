@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   MessageSquare, Search, Send, Phone, Shield, Lock,
-  MoreHorizontal, Paperclip, Loader2, Check, CheckCheck, Clock
+  MoreHorizontal, Paperclip, Loader2, Check, CheckCheck, Clock, AlertCircle
 } from 'lucide-react'
 import { messagingService, Conversation, Message } from '@/services/messaging-service'
 import { wsService } from '@/services/websocket-service'
@@ -26,9 +26,17 @@ export default function MessagesPage() {
   const [wsConnected, setWsConnected] = useState(false)
   const [typingUserId, setTypingUserId] = useState<string | null>(null)
   const [decryptedCache, setDecryptedCache] = useState<Record<string, string>>({})
+  const [messagesError, setMessagesError] = useState<string | null>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const token = useAuthStore((s) => s.token)
+  const currentOperatorId = useAuthStore((s) => s.stakeholder?.id)
+  const selectedConvRef = useRef<Conversation | null>(null)
+  const wsConnectedRef = useRef(false)
+
+  // Keep refs in sync with state
+  useEffect(() => { selectedConvRef.current = selectedConversation }, [selectedConversation])
+  useEffect(() => { wsConnectedRef.current = wsConnected }, [wsConnected])
 
   const decryptMessage = useCallback(async (msg: Message): Promise<string> => {
     if (!msg.encrypted_content || !msg.encryption_metadata || msg.encryption_metadata === '{}') {
@@ -59,8 +67,9 @@ export default function MessagesPage() {
     wsService.connect(token)
       .then(() => {
         setWsConnected(true)
-        if (selectedConversation) {
-          wsService.subscribeToConversation(selectedConversation.id)
+        const conv = selectedConvRef.current
+        if (conv) {
+          wsService.subscribeToConversation(conv.id)
         }
       })
       .catch(() => setWsConnected(false))
@@ -70,34 +79,38 @@ export default function MessagesPage() {
     }
   }, [token])
 
-  // WebSocket event handlers
+  // WebSocket event handlers - use refs to avoid stale closures
   useEffect(() => {
-    wsService.on('new_message', (data: any) => {
-      if (selectedConversation && data.conversation_id === selectedConversation.id) {
-        const newMsg: Message = {
-          id: data.message_id,
-          conversation_id: data.conversation_id,
-          sender_id: data.sender_id || null,
-          sender_operator_id: data.sender_operator_id || (data.is_operator_sender ? data.sender_id : undefined),
-          encrypted_content: data.encrypted_content || '',
-          encryption_metadata: data.encryption_metadata || '{}',
-          content_type: data.content_type || 'text',
-          status: data.status || 'sent',
-          sent_at: data.sent_at || new Date().toISOString(),
-          delivered_at: data.delivered_at || null,
-          is_edited: false,
-          is_deleted: false,
-          server_created_at: data.server_created_at || data.sent_at || new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, newMsg])
+    const handleNewMessage = (data: any) => {
+      const conv = selectedConvRef.current
+      if (conv && data.conversation_id === conv.id) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === data.message_id)) return prev
+          const newMsg: Message = {
+            id: data.message_id,
+            conversation_id: data.conversation_id,
+            sender_id: data.sender_id || null,
+            sender_operator_id: data.sender_operator_id || (data.is_operator_sender ? data.sender_id : undefined),
+            encrypted_content: data.encrypted_content || '',
+            encryption_metadata: data.encryption_metadata || '{}',
+            content_type: data.content_type || 'text',
+            status: data.status || 'sent',
+            sent_at: data.sent_at || new Date().toISOString(),
+            delivered_at: data.delivered_at || null,
+            is_edited: false,
+            is_deleted: false,
+            server_created_at: data.server_created_at || data.sent_at || new Date().toISOString(),
+          }
+          return [...prev, newMsg]
+        })
         setTimeout(scrollToBottom, 100)
       }
-      // Refresh conversation list
       loadConversations()
-    })
+    }
 
-    wsService.on('typing', (data: any) => {
-      if (selectedConversation && data.conversation_id === selectedConversation.id) {
+    const handleTyping = (data: any) => {
+      const conv = selectedConvRef.current
+      if (conv && data.conversation_id === conv.id) {
         if (data.is_typing) {
           setTypingUserId(data.user_id)
           if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
@@ -106,22 +119,26 @@ export default function MessagesPage() {
           setTypingUserId(null)
         }
       }
-    })
+    }
 
-    wsService.on('message_status', (data: any) => {
+    const handleMessageStatus = (data: any) => {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === data.message_id ? { ...m, status: data.status } : m
         )
       )
-    })
+    }
+
+    wsService.on('new_message', handleNewMessage)
+    wsService.on('typing', handleTyping)
+    wsService.on('message_status', handleMessageStatus)
 
     return () => {
-      wsService.off('new_message')
-      wsService.off('typing')
-      wsService.off('message_status')
+      wsService.off('new_message', handleNewMessage)
+      wsService.off('typing', handleTyping)
+      wsService.off('message_status', handleMessageStatus)
     }
-  }, [selectedConversation])
+  }, [scrollToBottom])
 
   // Subscribe/unsubscribe when conversation changes
   useEffect(() => {
@@ -144,7 +161,14 @@ export default function MessagesPage() {
   const loadConversations = useCallback(async () => {
     try {
       const data = await messagingService.listMyConversations()
-      setConversations(data)
+      // Deduplicate by id client-side
+      const seen = new Set<string>()
+      const deduped = data.filter(c => {
+        if (seen.has(c.id)) return false
+        seen.add(c.id)
+        return true
+      })
+      setConversations(deduped)
     } catch (error) {
       console.error('Failed to load conversations:', error)
     }
@@ -165,17 +189,18 @@ export default function MessagesPage() {
   // Load messages when a conversation is selected
   useEffect(() => {
     if (selectedConversation) {
+      setMessagesError(null)
       const loadMessages = async () => {
         try {
           const data = await messagingService.getMessages(selectedConversation.id)
-          setMessages(data.reverse())
+          setMessages(data)
           await messagingService.markAsRead(selectedConversation.id)
-          // Pre-decrypt messages
           for (const msg of data) {
             decryptMessage(msg)
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to load messages:', error)
+          setMessagesError(error?.message || 'Failed to load messages')
         }
       }
       loadMessages()
@@ -185,14 +210,14 @@ export default function MessagesPage() {
   // Poll for new messages as a fallback when WS is not connected
   useEffect(() => {
     if (!selectedConversation) return
-    if (wsConnected) return
 
     const interval = setInterval(async () => {
+      if (wsConnectedRef.current) return
       try {
         const data = await messagingService.getMessages(selectedConversation.id)
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id))
-          const newOnes = data.reverse().filter((m) => !existingIds.has(m.id))
+          const newOnes = data.filter((m) => !existingIds.has(m.id))
           if (newOnes.length === 0) return prev
           return [...prev, ...newOnes]
         })
@@ -202,7 +227,7 @@ export default function MessagesPage() {
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [selectedConversation, wsConnected])
+  }, [selectedConversation])
 
   // Send a message
   const handleSendMessage = async () => {
@@ -212,7 +237,7 @@ export default function MessagesPage() {
     const optimistic: Message = {
       id: tempId,
       conversation_id: selectedConversation.id,
-      sender_operator_id: 'me',
+      sender_operator_id: currentOperatorId || 'me',
       encrypted_content: messageInput,
       encryption_metadata: '{}',
       content_type: 'text',
@@ -405,16 +430,45 @@ export default function MessagesPage() {
 
                   {/* Messages */}
                   <CardContent className="flex-1 overflow-y-auto py-4 space-y-4">
-                    {messages.map((msg) => (
-                      <MessageBubble
-                        key={msg.id}
-                        msg={msg}
-                        decryptedCache={decryptedCache}
-                        onDecrypt={decryptMessage}
-                        formatTime={formatTime}
-                        getStatusIcon={getStatusIcon}
-                      />
-                    ))}
+                    {messagesError ? (
+                      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                        <AlertCircle className="h-12 w-12 mb-4 text-red-400" />
+                        <h3 className="text-lg font-medium">Failed to load messages</h3>
+                        <p className="text-sm">{messagesError}</p>
+                        <Button
+                          variant="outline"
+                          className="mt-4"
+                          onClick={() => {
+                            setMessagesError(null)
+                            setMessages([])
+                            if (selectedConversation) {
+                              messagingService.getMessages(selectedConversation.id)
+                                .then(data => setMessages(data))
+                                .catch(e => setMessagesError(e?.message || 'Retry failed'))
+                            }
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                        <MessageSquare className="h-12 w-12 mb-4 text-gray-300" />
+                        <h3 className="text-lg font-medium">No messages yet</h3>
+                        <p className="text-sm">Send a message to start the conversation</p>
+                      </div>
+                    ) : (
+                      messages.map((msg) => (
+                        <MessageBubble
+                          key={msg.id}
+                          msg={msg}
+                          decryptedCache={decryptedCache}
+                          onDecrypt={decryptMessage}
+                          formatTime={formatTime}
+                          getStatusIcon={getStatusIcon}
+                        />
+                      ))
+                    )}
                     <div ref={messagesEndRef} />
                   </CardContent>
 

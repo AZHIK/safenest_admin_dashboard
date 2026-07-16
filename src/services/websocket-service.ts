@@ -14,15 +14,18 @@ export class WebSocketService {
   private ws: WebSocket | null = null;
   private token: string | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 10;
   private reconnectDelay = 1000;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private handlers: Partial<Record<keyof WsEventMap, WsMessageHandler[]>> = {};
   private subscribedConversations = new Set<string>();
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private manualDisconnect = false;
 
   connect(token: string): Promise<void> {
     this.token = token;
     this.reconnectAttempts = 0;
+    this.manualDisconnect = false;
     return this._connect();
   }
 
@@ -30,7 +33,7 @@ export class WebSocketService {
     return new Promise((resolve, reject) => {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const wsBaseUrl = apiUrl.replace(/^http/, 'ws');
-      const wsUrl = `${wsBaseUrl}/api/v1/messages/ws/chat?token=${this.token}`;
+      const wsUrl = `${wsBaseUrl}/api/v1/operator/messaging/ws/chat?token=${this.token}`;
 
       try {
         this.ws = new WebSocket(wsUrl);
@@ -66,11 +69,13 @@ export class WebSocketService {
         this._stopHeartbeat();
         this.ws = null;
 
-        if (this.token && this.reconnectAttempts < this.maxReconnectAttempts) {
+        if (!this.manualDisconnect && this.token && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
-          const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-          console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-          setTimeout(() => this._connect(), delay);
+          const baseDelay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+          const jitter = Math.random() * 1000;
+          const delay = Math.min(baseDelay + jitter, 30000);
+          console.log(`[WS] Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})`);
+          this.reconnectTimer = setTimeout(() => this._connect(), delay);
         }
       };
 
@@ -129,7 +134,7 @@ export class WebSocketService {
     this.handlers[event]!.push(handler);
   }
 
-  off<K extends keyof WsEventMap>(event: K, handler?: WsEventMap[K]) {
+  off<K extends keyof WsEventMap>(event: K, handler?: WsMessageHandler) {
     if (!this.handlers[event]) return;
     if (handler) {
       this.handlers[event] = this.handlers[event]!.filter(h => h !== handler);
@@ -164,6 +169,11 @@ export class WebSocketService {
   }
 
   disconnect() {
+    this.manualDisconnect = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this._stopHeartbeat();
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
